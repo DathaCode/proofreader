@@ -5,7 +5,7 @@ database. Two connection modes: **Direct** (Gemini API key on the PC) and
 **LAN Proxy** (via a Control PC — see `DEPLOYMENT.md` / `proxy_server/`).
 Modern UI with dark + light themes and English/Sinhala switching.
 
-Python 3.9+ · Windows 10/11 64-bit.
+Python 3.9+ (3.14 OK) · Windows 10/11 64-bit. Current version: **4.3.0**.
 
 ## 1. Install dependencies
 ```powershell
@@ -43,9 +43,9 @@ Get-Process SinhalaProofreader -ErrorAction SilentlyContinue | Stop-Process -For
 The version lives in one place: **`version.py`** (`__version__`). The window title
 shows it. Use the script:
 ```powershell
-python bump_version.py            # patch:  4.2.0 -> 4.2.1
-python bump_version.py minor      # minor:  4.2.0 -> 4.3.0
-python bump_version.py major      # major:  4.2.0 -> 5.0.0
+python bump_version.py            # patch:  4.3.0 -> 4.3.1
+python bump_version.py minor      # minor:  4.3.0 -> 4.4.0
+python bump_version.py major      # major:  4.3.0 -> 5.0.0
 python bump_version.py 4.5.2      # set an explicit version
 ```
 Then rebuild (step 4). Typical release flow:
@@ -58,7 +58,7 @@ python -m PyInstaller build.spec --clean --noconfirm
 Per-user, outside the app (survives restarts and .exe updates):
 ```
 ~/.sinhala_proofreader/config.json        settings + API key (Direct mode)
-~/.sinhala_proofreader/corrections.json   learned corrections cache
+~/.sinhala_proofreader/corrections.db      learned corrections cache (SQLite)
 ```
 For mass deployment you can instead drop a `gemini_key.txt` (one line) next to the
 .exe, or set the `GEMINI_API_KEY` env var. In LAN Proxy mode the client needs no key.
@@ -75,6 +75,19 @@ assets/ · requirements.txt · build.spec · build.bat · bump_version.py
 ## Notes
 - **Encoding:** UTF-8 throughout. The GUI never prints to stdout, so the Windows
   cp1252 console limitation only affects test scripts (hence `PYTHONUTF8=1`).
-- **Icon:** `build.spec` uses `assets/icon.png` if present (else no custom icon).
+- **Icon:** the app icon is `assets/icon.png`. `build.spec` embeds
+  `assets/icon.ico` (a square, multi-size icon generated from the PNG) for the EXE
+  and bundles both into the app so the window/taskbar icon loads at runtime. If
+  you replace `icon.png`, regenerate `icon.ico` (e.g. with Pillow) to keep them
+  in sync.
+- **Corrections store:** SQLite (`corrections.db`). The class auto-migrates an old
+  `corrections.json` on first run (→ `corrections.json.bak`). `sqlite3` is in the
+  Python stdlib, so no extra dependency and no `build.spec` change is needed.
 - **Quota:** 20 LAN users on a *free* key will hit 429 — enable billing and/or use
-  `gemini-2.0-flash`. See `DEPLOYMENT.md`.
+  a `flash` model (default `gemini-2.5-flash`). See `DEPLOYMENT.md`.
+
+## Control PC proxy build
+The proxy isn't packaged as an .exe — it runs from source on the Control PC via
+`proxy_server/INSTALL.bat` (installs **flask + requests** only) and
+`START_PROXY.bat`. It has **no** `google-generativeai` dependency; it calls Gemini
+over plain HTTPS REST (`proxy_server/gemini_rest.py`). See `DEPLOYMENT.md`.

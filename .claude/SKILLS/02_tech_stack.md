@@ -1,79 +1,64 @@
 # Tech Stack for Sinhala Proofreader
 
-## Core Libraries
+> The app is **Gemini-API only** (the old offline dictionary / Levenshtein /
+> sinmorph engine was removed). Proofreading happens in the cloud; the local code
+> handles UI, orchestration, the self-learning corrections DB, and the LAN proxy.
+
+## Client app (`SinhalaProofreader.exe`)
 | Library | Version | Purpose |
 |---|---|---|
-| customtkinter | >=5.2.0 | Modern GUI (dark/light theme) |
-| python-Levenshtein | >=0.21.0 | Fast edit-distance for spell suggestions |
-| pyinstaller | >=6.0.0 | Package to .exe |
-| foma | system tool | Compile SinMorphy .foma files (optional) |
+| customtkinter | >=5.2.0 | Modern GUI (dark/light theme, EN/SI i18n) |
+| google-generativeai | >=0.5.0 | Gemini calls in **Direct mode** only |
+| requests | >=2.31.0 | LAN-proxy client + general HTTP |
+| pyinstaller | >=6.0.0 | Package to a single `.exe` |
+| Pillow | (dev only) | Generate `assets/icon.ico` from `icon.png` |
 
-## Optional Enhancements
-| Library | Purpose |
-|---|---|
-| rapidfuzz | Faster fuzzy matching than Levenshtein |
-| pyspellchecker | Base spell checker (can train on custom dict) |
-| tqdm | Progress bars during dictionary loading |
+`requirements.txt` holds the runtime deps. `sqlite3` and `tkinter` are part of the
+Python standard library — no install needed.
 
-## sinmorph Python API Usage
-```python
-# sinmorph/python/ contains the wrapper
-import sys
-sys.path.insert(0, 'sinmorph/python')
-from sinmorph import SinMorph  # or check actual class name in source
+## Control PC proxy (`proxy_server/`)
+| Library | Version | Purpose |
+|---|---|---|
+| flask | >=3.0.0 | HTTP server + `/admin` web panel |
+| requests | >=2.31.0 | Calls Gemini over plain HTTPS REST |
 
-analyzer = SinMorph()
-result = analyzer.analyze("ගෙදර")
-# result returns morphological tags: lemma, POS, case, etc.
-```
+`requirements_proxy.txt` — **no `google-generativeai`**. The proxy talks to Gemini
+through `proxy_server/gemini_rest.py` (raw REST), which avoids the deprecated SDK
+that 404s on Python 3.14.
 
-## Levenshtein for Sinhala Suggestions
-```python
-from Levenshtein import distance, editops
+## Gemini access — REST, not gRPC
+- Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent?key=KEY`
+- List models (powers the admin dropdown): `GET .../v1beta/models?key=KEY`
+- Plain HTTPS (port 443) so locked-down firewalls handle it cleanly.
+- Default model: `gemini-2.5-flash` (good Sinhala + free quota). `gemini-2.0-flash`
+  is retired for new keys; the proxy auto-switches off unavailable models.
 
-def suggest_sinhala(word, dictionary, max_dist=2, top_n=5):
-    candidates = []
-    for dict_word in dictionary:
-        d = distance(word, dict_word)
-        if d <= max_dist:
-            candidates.append((d, dict_word))
-    candidates.sort()
-    return [w for _, w in candidates[:top_n]]
-```
+## Corrections storage — SQLite
+- `engine/corrections_db.py` (client) and an identical `proxy_server/corrections_db.py`.
+- One shared `sqlite3` connection (`check_same_thread=False`) serialized by a
+  `threading.Lock()`; tables `corrections` + `metadata`.
+- Auto-migrates a legacy `corrections.json` (same dir) on first run → `.bak`.
 
-## Sinhala Unicode Tokenizer
+## Sinhala Unicode tokenizer (still used for English-word protection etc.)
 ```python
 import re
-
 def tokenize_sinhala(text):
-    # Match Sinhala words (including vowel signs and hal kirima)
-    pattern = r'[\u0D80-\u0DFF\u200D]+'
-    words = re.finditer(pattern, text)
-    return [(m.group(), m.start(), m.end()) for m in words]
+    pattern = r'[඀-෿‍]+'            # Sinhala block + ZWJ
+    return [(m.group(), m.start(), m.end()) for m in re.finditer(pattern, text)]
 ```
 
-## CustomTkinter Highlighted Text
+## CustomTkinter highlighted text
 ```python
-# Use tkinter Text widget with tags for colored highlights
-text_widget.tag_config("spell_error", background="#FF4444", foreground="white")
-text_widget.tag_config("grammar_error", background="#FF8C00", foreground="white")
+# Use a tk.Text widget (CTkTextbox lacks tag support) for colored highlights.
+text_widget.tag_config("spell_error",   background="#8B0000", foreground="white")
+text_widget.tag_config("grammar_error", background="#8B4500", foreground="white")
 text_widget.tag_add("spell_error", f"1.{start}", f"1.{end}")
 ```
 
-## PyInstaller Command
-```bash
-pyinstaller --onefile --windowed \
-  --add-data "data;data" \
-  --add-data "sinmorph/python;sinmorph/python" \
-  --add-data "sinmorph/lexicons;sinmorph/lexicons" \
-  --name SinhalaProofreader \
-  sinhala_proofreader.py
-```
-
-## requirements.txt template
+## requirements.txt (client)
 ```
 customtkinter>=5.2.0
-python-Levenshtein>=0.21.0
-rapidfuzz>=3.0.0
+google-generativeai>=0.5.0
+requests>=2.31.0
 pyinstaller>=6.0.0
 ```

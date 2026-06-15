@@ -10,7 +10,7 @@ Built for LAN deployment: up to ~20 client PCs can run fully offline, sending
 their text to a single internet-connected **Control PC** that holds the API key
 and does the Gemini calls on their behalf.
 
-**Version:** 4.2.0 · **Platform:** Windows 10/11 64-bit · **Python:** 3.9+
+**Version:** 4.3.0 · **Platform:** Windows 10/11 64-bit · **Python:** 3.9+ (3.14 OK)
 
 ---
 
@@ -42,7 +42,9 @@ captured into a corrections database. Over time:
   API quota.
 
 In LAN mode this database lives centrally on the Control PC; clients sync it on
-startup.
+startup. The store is **SQLite** (`corrections.db`) — thread-safe and robust; an
+older `corrections.json` is migrated automatically on first run (kept as
+`corrections.json.bak`).
 
 ---
 
@@ -108,11 +110,15 @@ running copy first (it locks the output file). Full details in [BUILD.md](BUILD.
 The version lives in one place — [version.py](version.py). Bump it with:
 
 ```powershell
-python bump_version.py            # patch:  4.2.0 -> 4.2.1
-python bump_version.py minor      # minor:  4.2.0 -> 4.3.0
-python bump_version.py major      # major:  4.2.0 -> 5.0.0
+python bump_version.py            # patch:  4.3.0 -> 4.3.1
+python bump_version.py minor      # minor:  4.3.0 -> 4.4.0
+python bump_version.py major      # major:  4.3.0 -> 5.0.0
 python bump_version.py 4.5.2      # explicit version
 ```
+
+The app icon (window, taskbar, and the `.exe`) comes from `assets/icon.png`. The
+build embeds `assets/icon.ico` (a square multi-size icon generated from the PNG);
+if you change the PNG, regenerate the `.ico` so the EXE/taskbar stay in sync.
 
 ---
 
@@ -141,7 +147,10 @@ assets/ · requirements.txt · build.spec · build.bat · bump_version.py
   system prompt; classifies API errors into friendly bilingual messages.
 - **`engine/lan_proxy_engine.py`** — client engine that POSTs to the Control PC.
 - **`engine/corrections_db.py`** — thread-safe, self-learning corrections store
-  (shared by client and proxy).
+  on **SQLite** (shared by client and proxy; auto-migrates old JSON).
+- **`proxy_server/gemini_rest.py`** — the proxy's Gemini client over plain HTTPS
+  REST (`requests` only — no deprecated SDK); also lists the key's available
+  models to populate the admin model dropdown.
 - **`proxy_server/`** — the Flask server for the Control PC, plus an admin panel
   and the Windows `.bat` helpers (`INSTALL`, `START_PROXY`, `FIREWALL_SETUP`,
   `CHECK_LAN_IP`, `AUTOSTART_SETUP`, …).
@@ -152,19 +161,25 @@ Per-user, outside the app (survives restarts and `.exe` updates):
 
 ```
 ~/.sinhala_proofreader/config.json        settings + API key (Direct mode)
-~/.sinhala_proofreader/corrections.json   learned corrections cache
+~/.sinhala_proofreader/corrections.db      learned corrections cache (SQLite)
 ```
 
 ---
 
 ## Notes
 
-- **Transport:** the app forces Gemini's REST transport (plain HTTPS, not gRPC)
-  so locked-down firewalls/proxies handle it cleanly. Whitelist
+- **Transport:** all Gemini calls use plain HTTPS REST (not gRPC) so locked-down
+  firewalls/proxies handle them cleanly. The Control PC proxy calls Gemini
+  directly with `requests` (no SDK — avoids the deprecated `google-generativeai`
+  package, which 404s on Python 3.14). Whitelist
   `generativelanguage.googleapis.com:443` on whichever PC goes out; LAN clients
   in proxy mode only need to reach the Control PC on **TCP 8765**.
+- **Model:** default is `gemini-2.5-flash` (good Sinhala + generous free quota).
+  The proxy admin panel has a **model dropdown** populated from your key's real
+  models, and **auto-switches** off a retired/unavailable model (e.g. the old
+  `gemini-2.0-flash`). Avoid `*-pro` for many shared users — its free quota is low.
 - **Quota:** many users on a *free* key will hit `429`. Enable billing on the
-  Google Cloud project, keep `gemini-2.0-flash`, and/or raise `max_concurrent`
+  Google Cloud project, pick a `flash` model, and/or raise `max_concurrent`
   in the proxy admin panel.
 - **Encoding:** UTF-8 throughout; all text is normalized to NFC. The GUI never
   prints to stdout, so the Windows cp1252 console limitation only affects test
