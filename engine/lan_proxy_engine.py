@@ -90,12 +90,29 @@ class LanProxyProofreader:
         errors = errors[:10]
 
         corrected = result.get("corrected_text", text)
+        # Resolve highlight positions against the ORIGINAL text (what the Results
+        # panel shows) — NOT the corrected text, where the wrong word is gone.
+        # Pick each error's next unclaimed occurrence so repeated words don't all
+        # land on the same span.
+        claimed = []
+
+        def _locate(word):
+            if not word:
+                return None, None
+            start_at = 0
+            while True:
+                idx = text.find(word, start_at)
+                if idx == -1:
+                    return None, None
+                span = (idx, idx + len(word))
+                if not any(span[0] < c[1] and span[1] > c[0] for c in claimed):
+                    claimed.append(span)
+                    return span
+                start_at = idx + 1
+
         for e in errors:
-            orig = e.get("original", "")
-            pos = corrected.find(orig) if orig else -1
-            e["start"] = pos if pos >= 0 else None
-            e["end"] = (pos + len(orig)) if pos >= 0 else None
             e.setdefault("type", "spelling")
+            e["start"], e["end"] = _locate(e.get("original", ""))
 
         stats = result.get("stats") or {}
         stats.setdefault("total_words", len(text.split()))

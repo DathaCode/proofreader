@@ -177,8 +177,11 @@ class MainWindow(ctk.CTk):
                                         font=font(12), text_color=TH.MUTED)
         self.count_label.grid(row=2, column=0, sticky="ew", padx=16)
 
+        self._reg(ctk.CTkLabel(left, anchor="w", font=font(12), text_color=TH.MUTED),
+                  "input_hint").grid(row=3, column=0, sticky="ew", padx=16, pady=(2, 0))
+
         btns = ctk.CTkFrame(left, fg_color="transparent")
-        btns.grid(row=3, column=0, sticky="ew", padx=16, pady=(8, 14))
+        btns.grid(row=4, column=0, sticky="ew", padx=16, pady=(8, 14))
         self.check_btn = self._primary(btns, key="check_btn", command=self.on_check, height=38)
         self.check_btn.pack(side="left", padx=(0, 8))
         self._secondary(btns, key="clear_btn", command=self.on_clear, height=38).pack(side="left")
@@ -206,10 +209,18 @@ class MainWindow(ctk.CTk):
         self._style_result_text()
         self.result_text.configure(state="disabled")
 
+        self._reg(ctk.CTkLabel(right, anchor="w", font=font(12), text_color=TH.MUTED),
+                  "results_hint").grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
+
         foot = ctk.CTkFrame(right, fg_color="transparent")
-        foot.grid(row=2, column=0, sticky="ew", padx=16, pady=(4, 14))
+        foot.grid(row=3, column=0, sticky="ew", padx=16, pady=(2, 14))
         self._primary(foot, key="open_corrected", command=self.open_corrected_window,
                       height=38).pack(side="left")
+        save = ctk.CTkButton(foot, command=self.apply_all_fixes, fg_color=TH.SUCCESS,
+                             hover_color=TH.SUCCESS_HOVER, corner_radius=TH.R_BTN,
+                             font=font(13, True), height=38)
+        self._reg(save, "apply_all")
+        save.pack(side="left", padx=(8, 0))
 
     def _build_error_list(self):
         wrap = self._card(self)
@@ -297,6 +308,22 @@ class MainWindow(ctk.CTk):
             self.corrected_box.insert("1.0", self._last_corrected_text)
         self.corrected_window.deiconify()
         self.corrected_window.lift()
+
+    def apply_all_fixes(self):
+        """One-click accept: replace the input text with the corrected version."""
+        # Prefer any edits the user made in the corrected window.
+        text = ""
+        if self.corrected_box is not None:
+            text = self.corrected_box.get("1.0", "end-1c").strip()
+        if not text:
+            text = self._last_corrected_text
+        if not text:
+            self._set_status(self._t("run_first"))
+            return
+        self.input_box.delete("1.0", "end")
+        self.input_box.insert("1.0", text)
+        self._update_counts()
+        self._set_status(self._t("applied_all"))
 
     # ============================================================ behaviour
     def _style_result_text(self):

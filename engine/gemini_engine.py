@@ -468,17 +468,28 @@ class GeminiProofreader:
 
     @staticmethod
     def _locate(errors, text):
-        """Set start/end character offsets of each error's `original` in text."""
+        """Set start/end char offsets of each error's `original` in text.
+
+        Each error claims its next unclaimed occurrence, so repeated words don't
+        all highlight the same span.
+        """
+        claimed = []
         for e in errors:
             orig = e.get("original", "")
+            e["start"], e["end"] = None, None
             if not orig:
-                e["start"], e["end"] = None, None
                 continue
-            pos = text.find(orig)
-            if pos < 0:
-                e["start"], e["end"] = None, None
-            else:
-                e["start"], e["end"] = pos, pos + len(orig)
+            start_at = 0
+            while True:
+                idx = text.find(orig, start_at)
+                if idx == -1:
+                    break
+                span = (idx, idx + len(orig))
+                if not any(span[0] < c[1] and span[1] > c[0] for c in claimed):
+                    claimed.append(span)
+                    e["start"], e["end"] = span
+                    break
+                start_at = idx + 1
 
     @staticmethod
     def _stats(text, errors):
