@@ -36,6 +36,30 @@ DAILY USE
 - Leave the console window open while clients are working.
 - Run  STOP_PROXY.bat  to stop it.
 
+RUN IN THE BACKGROUND (so users cannot close it)
+------------------------------------------------
+START_PROXY.bat shows a console window that a user might close. To run with NO
+window, pick ONE of these:
+
+  OPTION 1 — Hidden window (no install needed) [RECOMMENDED, EASIEST]
+    - Run  START_HIDDEN.bat   -> the server runs with NO visible window.
+    - Run  AUTOSTART_SETUP.bat -> it also auto-starts HIDDEN every time this
+      user logs in. There is no window for anyone to close.
+    - Logs go to  data\server.log .  Stop it with  STOP_PROXY.bat .
+    - Check it is alive: open  http://localhost:8765/status  in a browser.
+
+  OPTION 2 — Windows Service (most robust) [survives logout, auto-restarts]
+    - One-time: download NSSM from  https://nssm.cc/download , unzip, and copy
+      nssm.exe (the win64 one) into this folder.
+    - Right-click  INSTALL_SERVICE.bat  -> Run as administrator.
+    - Now it runs as the "SinhalaProxy" Windows service: starts on boot, keeps
+      running after you log out, and auto-restarts if it crashes.
+    - Manage it in  services.msc , or remove with  UNINSTALL_SERVICE.bat .
+    - Logs go to  data\server.log .
+
+Note: do NOT run more than one of START_PROXY / START_HIDDEN / the service at the
+same time — they all use port 8765. Stop one before starting another.
+
 ADMIN PANEL
 -----------
 Open  http://localhost:8765/admin  in a browser on the Control PC.
