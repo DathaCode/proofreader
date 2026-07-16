@@ -1,61 +1,81 @@
 <!DOCTYPE html>
-<html lang="si" data-theme="light">
+<html lang="{{ ui_lang }}" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sinhala Proofreader — සිංහල පාඨ පරීක්ෂක</title>
+  <title>AI Proofreader — සිංහල · தமிழ் · English</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
 </head>
 <body>
   <header class="appbar">
-    <div class="brand"><span class="logo">අ</span> සිංහල පාඨ පරීක්ෂක</div>
+    <div class="brand"><span class="logo">அ</span> <span data-i18n="app_name">AI Proofreader</span></div>
     <div class="spacer"></div>
+
+    <!-- language switcher -->
+    <div class="langswitch" role="group" aria-label="Language">
+      <button class="lang-btn" data-lang-btn="si" title="සිංහල">සිං</button>
+      <button class="lang-btn" data-lang-btn="ta" title="தமிழ்">த</button>
+      <button class="lang-btn" data-lang-btn="en" title="English">EN</button>
+    </div>
+
     <span class="user">👤 <b>{{ username }}</b>{% if role == 'admin' %} · admin{% endif %}</span>
-    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" title="Theme">🌙</button>
+    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" data-i18n-title="theme" title="Theme">🌙</button>
     {% if role == 'admin' %}
-      <a class="btn ghost sm" href="{{ url_for('admin') }}">⚙️ Admin</a>
+      <a class="btn ghost sm" href="{{ url_for('admin') }}">⚙️ <span data-i18n="admin_link">Admin</span></a>
     {% endif %}
-    <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 පිටවීම</a>
+    <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 <span data-i18n="logout">Logout</span></a>
   </header>
 
   <main class="wrap">
     <div class="grid">
       <!-- LEFT: input -->
       <section class="panel">
-        <h2>📝 ආදාන පෙළ</h2>
-        <textarea id="input" class="si"
-          placeholder="සිංහල පාඨය මෙහි ඇතුළු කරන්න..."></textarea>
+        <h2>📝 <span data-i18n="input_heading">Input text</span></h2>
+        <textarea id="input" class="intl" data-i18n-ph="input_placeholder"
+          placeholder="Enter your text here..."></textarea>
         <div class="counter" id="counter"></div>
         <div class="toolbar">
-          <button class="btn primary si" onclick="checkText()">✅ පරීක්ෂා කරන්න</button>
-          <button class="btn ghost si" onclick="clearText()">🗑️ හිස් කරන්න</button>
+          <button class="btn primary" onclick="checkText()"><span data-i18n="check_btn">✅ Check</span></button>
+          <button class="btn ghost" onclick="clearText()"><span data-i18n="clear_btn">🗑️ Clear</span></button>
+          <span class="langpick">
+            <label class="lbl" data-i18n="text_lang_label">Text language</label>
+            <select id="textLang">
+              <option value="" data-i18n="lang_auto">Auto-detect</option>
+              <option value="si" data-i18n="lang_si">Sinhala</option>
+              <option value="ta" data-i18n="lang_ta">Tamil</option>
+              <option value="en" data-i18n="lang_en">English</option>
+            </select>
+          </span>
         </div>
       </section>
 
       <!-- RIGHT: results -->
       <section class="panel">
-        <h2>🔍 ප්‍රතිඵල</h2>
+        <h2>🔍 <span data-i18n="results_heading">Results</span>
+          <span id="detected" class="detected-badge" hidden></span></h2>
         <div class="chips" id="chips"></div>
-        <div class="label-row"><span class="lbl si">දෝෂ ලකුණු කළ පෙළ</span></div>
-        <div id="highlighted" class="result-box empty si">ප්‍රතිඵල මෙහි දිස්වේ…</div>
+        <div class="label-row"><span class="lbl" data-i18n="highlighted_label">Highlighted text</span></div>
+        <div id="highlighted" class="result-box empty intl" data-i18n="results_placeholder">Results appear here…</div>
 
         <div class="label-row">
-          <span class="lbl si">නිවැරදි කළ පෙළ (සංස්කරණය කළ හැක)</span>
+          <span class="lbl" data-i18n="corrected_label">Corrected text (editable)</span>
         </div>
-        <textarea id="corrected" class="si" placeholder="නිවැරදි කළ පෙළ මෙහි දිස්වේ…"></textarea>
+        <textarea id="corrected" class="intl" data-i18n-ph="corrected_placeholder"
+          placeholder="Corrected text appears here…"></textarea>
         <div class="toolbar">
-          <button class="btn si" onclick="copyCorrected()">📋 පිටපත් කරන්න</button>
-          <button class="btn si" onclick="saveCorrections()">✍️ මගේ නිවැරදි කිරීම් සුරකින්න</button>
+          <button class="btn" onclick="copyCorrected()"><span data-i18n="copy_btn">📋 Copy</span></button>
+          <button class="btn" onclick="saveCorrections()"><span data-i18n="save_btn">✍️ Save my corrections</span></button>
         </div>
-        <p class="summary si" id="summary"></p>
+        <p class="summary intl" id="summary"></p>
       </section>
     </div>
 
     <!-- error list -->
     <section class="panel errorlist">
-      <h2>📋 දෝෂ ලැයිස්තුව</h2>
+      <h2>📋 <span data-i18n="errorlist_heading">Error list</span></h2>
       <div class="items" id="errorItems">
-        <div class="empty-state si">පෙළක් ඇතුළු කර පරීක්ෂා කරන්න.</div>
+        <div class="empty-state" data-i18n="errors_placeholder">Enter text and press Check.</div>
       </div>
     </section>
   </main>
@@ -64,12 +84,13 @@
   <div class="overlay" id="overlay">
     <div class="card">
       <div class="spinner"></div>
-      <div class="msg si">Gemini සමඟ පරීක්ෂා කරමින්...</div>
+      <div class="msg" id="loadingMsg" data-i18n="loading_msg">Checking with Gemini...</div>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
+  <script src="{{ url_for('static', filename='i18n.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

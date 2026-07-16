@@ -1,35 +1,42 @@
 <!DOCTYPE html>
-<html lang="si" data-theme="light">
+<html lang="{{ ui_lang }}" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>පිවිසෙන්න — Sinhala Proofreader</title>
+  <title>AI Proofreader — Sign in</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
 </head>
 <body>
   <div class="login-wrap">
     <form class="login-card" method="POST" action="{{ url_for('login') }}{% if next %}?next={{ next }}{% endif %}">
-      <div class="logo-big">අ</div>
-      <h1>Sinhala Proofreader</h1>
-      <p class="sub si">සිංහල පාඨ පරීක්ෂක · පිවිසෙන්න</p>
+      <div class="langswitch" style="margin: 0 auto 18px; width: max-content;">
+        <button type="button" class="lang-btn" data-lang-btn="si" title="සිංහල">සිං</button>
+        <button type="button" class="lang-btn" data-lang-btn="ta" title="தமிழ்">த</button>
+        <button type="button" class="lang-btn" data-lang-btn="en" title="English">EN</button>
+      </div>
+
+      <div class="logo-big">அ</div>
+      <h1>AI Proofreader</h1>
+      <p class="sub intl" data-i18n="login_sub">Sinhala · Tamil · English Proofreader</p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, msg in messages %}
-          <div class="flash {{ category }} si">{{ msg }}</div>
+          <div class="flash {{ category }} intl">{{ msg }}</div>
         {% endfor %}
       {% endwith %}
 
       <input type="hidden" name="next" value="{{ next }}">
       <div class="field">
-        <label for="username">පරිශීලක නාමය / Username</label>
+        <label for="username" data-i18n="username_label">Username</label>
         <input type="text" id="username" name="username" autocomplete="username" autofocus required>
       </div>
       <div class="field">
-        <label for="password">මුරපදය / Password</label>
+        <label for="password" data-i18n="password_label">Password</label>
         <input type="password" id="password" name="password" autocomplete="current-password" required>
       </div>
-      <button class="btn primary" type="submit">පිවිසෙන්න →</button>
-      <p class="hint">Sinhala Proofreader Web · v1.0</p>
+      <button class="btn primary" type="submit" data-i18n="login_btn">Sign in →</button>
+      <p class="hint">AI Proofreader Web · v1.1</p>
     </form>
   </div>
   <script>
@@ -38,5 +45,6 @@
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
+  <script src="{{ url_for('static', filename='i18n.js') }}"></script>
 </body>
 </html>

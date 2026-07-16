@@ -1,4 +1,4 @@
-/* Sinhala Proofreader Web App — main UI logic (vanilla JS). */
+/* AI Proofreader Web App — main UI logic (vanilla JS). Multilingual (si/ta/en). */
 
 (function () {
   "use strict";
@@ -28,8 +28,12 @@
   const summaryEl = $("summary");
   const chips = $("chips");
   const overlay = $("overlay");
+  const detected = $("detected");
+  const textLang = $("textLang");
 
-  let lastCorrectedText = "";     // the model's corrected_text (for diffing on save)
+  // Keep the last result so we can re-render labels when the UI language changes.
+  let lastResult = null;
+  let lastCorrectedText = "";
 
   // ---------- helpers ----------
   function escapeHtml(s) {
@@ -37,79 +41,73 @@
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[c]));
   }
-
   function toast(msg, kind) {
-    const t = $("toast");
-    t.textContent = msg;
-    t.className = "toast show " + (kind || "");
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => { t.className = "toast"; }, 3000);
+    const el = $("toast");
+    el.textContent = msg;
+    el.className = "toast show " + (kind || "");
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.className = "toast"; }, 3000);
   }
 
   function updateCounter() {
     const text = input.value;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    counter.innerHTML = `<b>${words}</b> වචන · <b>${text.length}</b> අකුරු`;
+    counter.textContent = window.t("counter", words, text.length);
   }
   input.addEventListener("input", updateCounter);
-  updateCounter();
 
   // ---------- highlight builder ----------
   const CLASS_FOR = {
     spelling: "spell-error",
     grammar: "grammar-error",
     grammar_discord: "grammar-error",
+    punctuation: "grammar-error",
     encoding_error: "encoding-error",
   };
 
+  function explOf(e) {
+    return e.explanation_native || e.explanation_en || "";
+  }
+
   function highlightErrors(text, errors) {
-    // Collect located spans (start/end resolved server-side).
     const spans = errors
       .filter((e) => e.start != null && e.end != null)
       .map((e) => ({ start: e.start, end: e.end, e }))
       .sort((a, b) => a.start - b.start);
-
     let html = "";
     let cursor = 0;
     for (const s of spans) {
-      if (s.start < cursor) continue; // skip overlaps
+      if (s.start < cursor) continue;
       html += escapeHtml(text.slice(cursor, s.start));
       const cls = CLASS_FOR[s.e.type] || "spell-error";
-      const tip = `${s.e.original} → ${s.e.correction}  ·  ${s.e.explanation_si || s.e.explanation_en || ""}`;
+      const tip = `${s.e.original} → ${s.e.correction}  ·  ${explOf(s.e)}`;
       html += `<mark class="${cls}" title="${escapeHtml(tip)}">${escapeHtml(text.slice(s.start, s.end))}</mark>`;
       cursor = s.end;
     }
     html += escapeHtml(text.slice(cursor));
-    return html || '<span class="empty">…</span>';
+    return html || "…";
   }
 
   const ICON_FOR = {
-    spelling: "🔤",
-    grammar: "📝",
-    grammar_discord: "📝",
-    encoding_error: "🔧",
-  };
-  const TYPE_LABEL = {
-    spelling: "අක්ෂර වින්‍යාස",
-    grammar: "ව්‍යාකරණ",
-    grammar_discord: "ව්‍යාකරණ",
-    encoding_error: "encoding",
+    spelling: "🔤", grammar: "📝", grammar_discord: "📝",
+    punctuation: "❓", encoding_error: "🔧",
   };
 
   function renderErrorList(errors) {
     if (!errors.length) {
-      errorItems.innerHTML = '<div class="empty-state">✅ දෝෂ කිසිවක් හමු නොවීය.</div>';
+      errorItems.innerHTML = `<div class="empty-state">${escapeHtml(window.t("no_errors"))}</div>`;
       return;
     }
     errorItems.innerHTML = errors.map((e) => {
       const conf = Math.round((e.confidence || 0) * 100);
+      const typeLabel = window.t("type_" + e.type);
       return `<div class="err ${e.type}">
         <div class="ico">${ICON_FOR[e.type] || "❗"}</div>
         <div class="body">
           <div class="change"><span class="from">${escapeHtml(e.original)}</span>
             &nbsp;→&nbsp;<span class="to">${escapeHtml(e.correction)}</span>
-            <span class="tag">${TYPE_LABEL[e.type] || e.type}</span></div>
-          <div class="why">${escapeHtml(e.explanation_si || e.explanation_en || "")}</div>
+            <span class="tag">${escapeHtml(typeLabel)}</span></div>
+          <div class="why">${escapeHtml(explOf(e))}</div>
         </div>
         <div class="conf">${conf}%</div>
       </div>`;
@@ -118,54 +116,72 @@
 
   function renderChips(stats, preFixed) {
     if (!stats) { chips.innerHTML = ""; return; }
+    const chip = (label, n) => `<span class="chip">${escapeHtml(label)} <b>${n || 0}</b></span>`;
     const parts = [
-      `<span class="chip">වචන <b>${stats.total_words || 0}</b></span>`,
-      `<span class="chip">දෝෂ <b>${stats.errors_found || 0}</b></span>`,
-      `<span class="chip">අක්ෂර <b>${stats.spell_errors || 0}</b></span>`,
-      `<span class="chip">ව්‍යාකරණ <b>${stats.grammar_errors || 0}</b></span>`,
+      chip(window.t("type_spelling"), stats.spell_errors),
+      chip(window.t("type_grammar"), stats.grammar_errors),
     ];
-    if (preFixed) parts.push(`<span class="chip">පෙර-නිවැරදි <b>${preFixed}</b></span>`);
-    chips.innerHTML = parts.join("");
+    if (preFixed) parts.unshift(`<span class="chip">✔ <b>${preFixed}</b></span>`);
+    chips.innerHTML =
+      `<span class="chip">Σ <b>${stats.errors_found || 0}</b></span>` + parts.join("");
   }
+
+  function showDetected(lang) {
+    if (!lang) { detected.hidden = true; return; }
+    detected.hidden = false;
+    detected.textContent = window.t("detected_as", window.t("lang_" + lang));
+  }
+
+  // Re-render dynamic content in the newly selected UI language.
+  function rerender() {
+    updateCounter();
+    if (!lastResult) return;
+    renderErrorList(lastResult.errors || []);
+    renderChips(lastResult.stats, lastResult.pre_fixed_count);
+    showDetected(lastResult.lang);
+    const native = lastResult.summary_native || lastResult.summary_en || "";
+    summaryEl.textContent = native;
+  }
+  document.addEventListener("langchange", rerender);
 
   // ---------- main actions ----------
   window.checkText = async function () {
     const text = input.value.trim();
-    if (!text) { toast("කරුණාකර පෙළක් ඇතුළු කරන්න", "err"); input.focus(); return; }
+    if (!text) { toast(window.t("enter_text"), "err"); input.focus(); return; }
     overlay.classList.add("show");
     try {
+      const body = { text };
+      const forced = textLang.value;
+      if (forced) body.lang = forced;
       const res = await fetch("/api/proofread", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
       if (res.status === 401) { window.location = "/login"; return; }
       const data = await res.json();
-      if (res.status === 429) { toast(data.message_si || "ඉල්ලීම් සීමාව ඉක්මවා ඇත", "err"); return; }
+      if (res.status === 429) { toast(window.t("rate_limited"), "err"); return; }
       if (!res.ok || data.ok === false) {
-        toast((data.message_si || data.summary_si || "දෝෂයකි") , "err");
-        highlighted.innerHTML = "";
-        highlighted.classList.add("empty");
+        toast(data.message_en || data.summary_en || window.t("conn_error"), "err");
         return;
       }
 
+      lastResult = data;
       const original = data.original || text;
       highlighted.classList.remove("empty");
       highlighted.innerHTML = highlightErrors(original, data.errors || []);
-
       lastCorrectedText = data.corrected_text || original;
       corrected.value = lastCorrectedText;
 
       renderErrorList(data.errors || []);
       renderChips(data.stats, data.pre_fixed_count);
-
-      const sSi = data.summary_si || "";
-      summaryEl.textContent = sSi;
+      showDetected(data.lang);
+      summaryEl.textContent = data.summary_native || data.summary_en || "";
 
       const n = (data.errors || []).length;
-      toast(n ? `${n} දෝෂ හමු විය` : "දෝෂ නොමැත ✅", n ? "" : "ok");
+      toast(n ? window.t("errors_found", n) : window.t("no_errors"), n ? "" : "ok");
     } catch (err) {
-      toast("සම්බන්ධතා දෝෂයකි: " + err.message, "err");
+      toast(window.t("conn_error") + ": " + err.message, "err");
     } finally {
       overlay.classList.remove("show");
     }
@@ -174,35 +190,35 @@
   window.clearText = function () {
     input.value = "";
     updateCounter();
-    highlighted.innerHTML = "";
+    highlighted.innerHTML = window.t("results_placeholder");
     highlighted.classList.add("empty");
     corrected.value = "";
     lastCorrectedText = "";
-    errorItems.innerHTML = '<div class="empty-state">පෙළක් ඇතුළු කර පරීක්ෂා කරන්න.</div>';
+    lastResult = null;
+    errorItems.innerHTML = `<div class="empty-state">${escapeHtml(window.t("errors_placeholder"))}</div>`;
     chips.innerHTML = "";
     summaryEl.textContent = "";
+    detected.hidden = true;
     input.focus();
   };
 
   window.copyCorrected = async function () {
     const text = corrected.value;
-    if (!text) { toast("පිටපත් කිරීමට කිසිවක් නැත", "err"); return; }
+    if (!text) { toast(window.t("nothing_copy"), "err"); return; }
     try {
       await navigator.clipboard.writeText(text);
-      toast("පිටපත් කරන ලදී 📋", "ok");
+      toast(window.t("copied"), "ok");
     } catch {
       corrected.select();
       document.execCommand("copy");
-      toast("පිටපත් කරන ලදී 📋", "ok");
+      toast(window.t("copied"), "ok");
     }
   };
 
-  // Compare the model's corrected_text with the user's edited version,
-  // word by word, and record the differences as human corrections.
   window.saveCorrections = async function () {
     const edited = corrected.value.trim();
-    if (!edited) { toast("සුරැකීමට කිසිවක් නැත", "err"); return; }
-    if (!lastCorrectedText) { toast("පළමුව පෙළක් පරීක්ෂා කරන්න", "err"); return; }
+    if (!edited) { toast(window.t("save_nothing"), "err"); return; }
+    if (!lastCorrectedText) { toast(window.t("check_first"), "err"); return; }
 
     const origWords = lastCorrectedText.trim().split(/\s+/);
     const newWords = edited.split(/\s+/);
@@ -213,15 +229,10 @@
         corrections.push({ wrong: origWords[i], correct: newWords[i], type: "spelling" });
       }
     }
-    if (!corrections.length) {
-      toast("වෙනස්කම් හමු නොවීය", "");
-      return;
-    }
-    const preview = corrections.slice(0, 5)
-      .map((c) => `${c.wrong} → ${c.correct}`).join("\n");
-    if (!confirm(`මෙම නිවැරදි කිරීම් ${corrections.length}ක් සුරකින්නද?\n\n${preview}${corrections.length > 5 ? "\n…" : ""}`)) {
-      return;
-    }
+    if (!corrections.length) { toast(window.t("no_changes"), ""); return; }
+    const preview = corrections.slice(0, 5).map((c) => `${c.wrong} → ${c.correct}`).join("\n");
+    if (!confirm(window.t("confirm_save", corrections.length) + "\n\n" + preview +
+        (corrections.length > 5 ? "\n…" : ""))) return;
     try {
       const res = await fetch("/api/corrections", {
         method: "POST",
@@ -229,19 +240,17 @@
         body: JSON.stringify({ corrections }),
       });
       const data = await res.json();
-      if (data.ok) {
-        toast(`✍️ නිවැරදි කිරීම් ${data.saved}ක් සුරකින ලදී`, "ok");
-        lastCorrectedText = edited;
-      } else {
-        toast("සුරැකීම අසාර්ථකයි", "err");
-      }
+      if (data.ok) { toast(window.t("saved_n", data.saved), "ok"); lastCorrectedText = edited; }
+      else toast(window.t("save_failed"), "err");
     } catch (err) {
-      toast("සම්බන්ධතා දෝෂයකි", "err");
+      toast(window.t("conn_error"), "err");
     }
   };
 
-  // Ctrl+Enter to check.
   input.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); window.checkText(); }
   });
+
+  // Initial counter (after i18n applies on DOMContentLoaded).
+  document.addEventListener("DOMContentLoaded", updateCounter);
 })();

@@ -16,7 +16,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "web_config.json")
 API_KEY_PATH = os.path.join(BASE_DIR, "api_key.txt")
-PROMPT_PATH = os.path.join(BASE_DIR, "sinhala_system_prompt.txt")
+# Per-language proofreading system prompts.
+PROMPT_PATHS = {
+    "si": os.path.join(BASE_DIR, "sinhala_system_prompt.txt"),
+    "ta": os.path.join(BASE_DIR, "tamil_system_prompt.txt"),
+    "en": os.path.join(BASE_DIR, "english_system_prompt.txt"),
+}
+PROMPT_PATH = PROMPT_PATHS["si"]  # backwards-compatible alias
 CORRECTIONS_PATH = os.path.join(DATA_DIR, "corrections.db")
 LOG_PATH = os.path.join(DATA_DIR, "usage_log.csv")
 
@@ -125,12 +131,20 @@ class WebConfig:
             return "•" * len(key)
         return "%s…%s" % (key[:4], key[-4:])
 
-    def get_prompt(self):
+    _PROMPT_FALLBACK = {
+        "si": "You are an expert Sinhala language proofreader. Output valid JSON only.",
+        "ta": "You are an expert Tamil language proofreader. Output valid JSON only.",
+        "en": "You are an expert English proofreader. Output valid JSON only.",
+    }
+
+    def get_prompt(self, lang="si"):
+        """Return the proofreading system prompt for `lang` (si/ta/en)."""
+        path = PROMPT_PATHS.get(lang, PROMPT_PATHS["si"])
         try:
-            with open(PROMPT_PATH, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return f.read()
         except OSError:
-            return "You are an expert Sinhala language proofreader."
+            return self._PROMPT_FALLBACK.get(lang, self._PROMPT_FALLBACK["si"])
 
 
 def _deep_copy(d):

@@ -15,6 +15,14 @@ import threading
 import unicodedata
 
 from gemini_rest import GeminiRest, GeminiRestError
+from lang_detect import detect_language, normalize_lang
+
+# Trailing instruction appended to each prompt, per language.
+_TAIL = {
+    "si": "\n\nSinhala text to proofread:\n",
+    "ta": "\n\nTamil text to proofread:\n",
+    "en": "\n\nEnglish text to proofread:\n",
+}
 
 CONFIDENCE_THRESHOLD = 0.75
 MAX_ERRORS = 10
@@ -44,13 +52,13 @@ class WebProofreader:
         self.available_models = []
         self._models_tried = False
         self.sem = threading.Semaphore(int(cfg.get("max_concurrent", 4)))
-        self.prompt = cfg.get_prompt()
+        self.prompts = {}
         self.reload_model()
 
     # ----- lifecycle -----------------------------------------------------
     def reload_model(self):
-        """(Re)build the REST client from the current key + model."""
-        self.prompt = self.cfg.get_prompt()
+        """(Re)build the REST client + reload all per-language prompts."""
+        self.prompts = {l: self.cfg.get_prompt(l) for l in ("si", "ta", "en")}
         self.sem = threading.Semaphore(int(self.cfg.get("max_concurrent", 4)))
         self._models_tried = False
         key = self.cfg.get_api_key()
@@ -103,39 +111,53 @@ class WebProofreader:
         except Exception as e:
             return False, str(e)[:240]
 
-    # ----- core proofreading (three layers) ------------------------------
-    def proofread(self, text):
+    # ----- core proofreading (three layers, language-aware) --------------
+    def proofread(self, text, lang=None):
+        """Proofread `text`. `lang` (si/ta/en) forces a prompt; if omitted the
+        language is auto-detected from the text's script."""
         text = unicodedata.normalize("NFC", sanitize_input(text).strip())
         if not text:
             return {
                 "errors": [], "corrected_text": "", "original": "",
-                "summary_si": "", "summary_en": "", "pre_fixed_count": 0,
-                "stats": _stats("", []),
+                "lang": normalize_lang(lang), "detected_lang": normalize_lang(lang),
+                "summary_native": "", "summary_si": "", "summary_en": "",
+                "pre_fixed_count": 0, "stats": _stats("", []),
             }
         if self.client is None:
             raise RuntimeError(self.model_error or "Gemini model not ready")
 
-        # LAYER 1 — pre-check from the human corrections DB (instant, conf 1.0).
-        pre_fixed = []
-        for wrong, correct in self.db.get_precheck_map().items():
-            if wrong and wrong in text:
-                text = text.replace(wrong, correct)
-                pre_fixed.append({
-                    "original": wrong, "correction": correct, "type": "spelling",
-                    "confidence": 1.0, "source": "human_db",
-                    "explanation_si": "මිනිස් සමාලෝචකයෙකු විසින් නිවැරදි කළ දෝෂයකි",
-                    "explanation_en": "Previously corrected by a human reviewer",
-                })
+        # Resolve target language: explicit override, else auto-detect.
+        if lang:
+            lang = normalize_lang(lang)
+        else:
+            lang = detect_language(text)
 
-        # LAYER 2 — inject top corrections + protect English words.
-        inject_block = self.db.export_for_injection(int(self.cfg.get("inject_top_n", 40)))
-        english = sorted(set(re.findall(r"[A-Za-z]+", text)))
+        # LAYER 1 + 2 (self-learning corrections DB) apply to Sinhala only —
+        # the shared DB is Sinhala-tuned. Tamil/English go straight to Gemini.
+        pre_fixed = []
+        inject_block = ""
+        if lang == "si":
+            for wrong, correct in self.db.get_precheck_map().items():
+                if wrong and wrong in text:
+                    text = text.replace(wrong, correct)
+                    pre_fixed.append({
+                        "original": wrong, "correction": correct, "type": "spelling",
+                        "confidence": 1.0, "source": "human_db",
+                        "explanation_si": "මිනිස් සමාලෝචකයෙකු විසින් නිවැරදි කළ දෝෂයකි",
+                        "explanation_en": "Previously corrected by a human reviewer",
+                    })
+            inject_block = self.db.export_for_injection(int(self.cfg.get("inject_top_n", 40)))
+
+        # Protect embedded English words for Indic-script prompts only.
         english_note = ""
-        if english:
-            english_note = ("\n\nCRITICAL: These English words appear in the text. "
-                            "They are ALL valid. NEVER flag them: " + ", ".join(english))
-        prompt = (self.prompt + inject_block + english_note
-                  + "\n\nSinhala text to proofread:\n" + text)
+        if lang in ("si", "ta"):
+            english = sorted(set(re.findall(r"[A-Za-z]+", text)))
+            if english:
+                english_note = ("\n\nCRITICAL: These English words appear in the text. "
+                                "They are ALL valid. NEVER flag them: " + ", ".join(english))
+
+        base_prompt = self.prompts.get(lang) or self.cfg.get_prompt(lang)
+        prompt = base_prompt + inject_block + english_note + _TAIL.get(lang, _TAIL["si"]) + text
 
         # LAYER 3 — Gemini over plain HTTPS REST.
         with self.sem:
@@ -157,14 +179,22 @@ class WebProofreader:
             etype = e.get("type", "spelling")
             if etype not in _VALID_TYPES:
                 etype = "spelling"
+            expl_native = (e.get("explanation_si") or e.get("explanation_ta")
+                           or e.get("explanation_en") or "")
             gemini_errors.append({
                 "original": str(e.get("original", "")),
                 "correction": str(e.get("correction", "")),
                 "type": etype,
+                "explanation_native": str(expl_native),
                 "explanation_si": str(e.get("explanation_si", "")),
+                "explanation_ta": str(e.get("explanation_ta", "")),
                 "explanation_en": str(e.get("explanation_en", "")),
                 "confidence": conf,
             })
+
+        # Give pre-fixed (Sinhala) errors a native explanation field too.
+        for e in pre_fixed:
+            e.setdefault("explanation_native", e.get("explanation_si", ""))
 
         all_errors = pre_fixed + gemini_errors
         all_errors.sort(key=lambda x: x.get("confidence", 1), reverse=True)
@@ -173,13 +203,21 @@ class WebProofreader:
         corrected = str(data.get("corrected_text", text)) or text
         _locate(all_errors, text)
 
+        summary_native = (data.get("summary_native") or data.get("summary_si")
+                          or data.get("summary_ta") or "")
+        if not summary_native:  # English (and any prompt that only emits summary_en)
+            summary_native = data.get("summary_en", "")
         stats = _stats(text, all_errors, len(pre_fixed))
         return {
             "ok": True,
+            "lang": lang,
+            "detected_lang": lang,
             "errors": all_errors,
             "corrected_text": corrected,
             "original": text,
+            "summary_native": str(summary_native),
             "summary_si": str(data.get("summary_si", "")),
+            "summary_ta": str(data.get("summary_ta", "")),
             "summary_en": str(data.get("summary_en", "")),
             "pre_fixed_count": len(pre_fixed),
             "stats": stats,

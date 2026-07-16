@@ -106,6 +106,15 @@ def client_ip():
     return request.remote_addr or "?"
 
 
+def default_ui_lang():
+    """Best UI language from the browser's Accept-Language header (si/ta/en).
+
+    The client's saved choice in localStorage overrides this on the front end;
+    this only sets the very first render before any choice is made."""
+    best = request.accept_languages.best_match(["si", "ta", "en"])
+    return best or "en"
+
+
 # ----- auth routes -------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -122,7 +131,8 @@ def login():
                 return redirect(nxt)
             return redirect(url_for("admin") if role == "admin" else url_for("index"))
         flash("වැරදි පරිශීලක නාමය හෝ මුරපදය / Wrong username or password", "error")
-    return render_template("login.html", next=request.args.get("next", ""))
+    return render_template("login.html", next=request.args.get("next", ""),
+                           ui_lang=default_ui_lang())
 
 
 @app.route("/logout")
@@ -137,7 +147,8 @@ def logout():
 def index():
     return render_template("index.html",
                            username=session.get("user"),
-                           role=session.get("role"))
+                           role=session.get("role"),
+                           ui_lang=default_ui_lang())
 
 
 @app.route("/admin")
@@ -152,6 +163,7 @@ def admin():
     return render_template(
         "admin.html",
         username=session.get("user"),
+        ui_lang=default_ui_lang(),
         stats=st.db.get_stats(),
         cfg=st.cfg.data,
         usage=st.logger.summary(),
@@ -178,8 +190,9 @@ def api_proofread():
     t0 = time.time()
     payload = request.get_json(silent=True) or {}
     text = payload.get("text", "")
+    lang = payload.get("lang")  # optional override ("si"/"ta"/"en"); else auto-detect
     try:
-        result = STATE.engine.proofread(text)
+        result = STATE.engine.proofread(text, lang=lang)
         latency = int((time.time() - t0) * 1000)
         STATE.logger.log(ip, result["stats"]["total_words"],
                          result["stats"]["errors_found"],
