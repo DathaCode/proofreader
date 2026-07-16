@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="si" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>පිවිසෙන්න — Sinhala Proofreader</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-card" method="POST" action="{{ url_for('login') }}{% if next %}?next={{ next }}{% endif %}">
+      <div class="logo-big">අ</div>
+      <h1>Sinhala Proofreader</h1>
+      <p class="sub si">සිංහල පාඨ පරීක්ෂක · පිවිසෙන්න</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+          <div class="flash {{ category }} si">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field">
+        <label for="username">පරිශීලක නාමය / Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+      </div>
+      <div class="field">
+        <label for="password">මුරපදය / Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn primary" type="submit">පිවිසෙන්න →</button>
+      <p class="hint">Sinhala Proofreader Web · v1.0</p>
+    </form>
+  </div>
+  <script>
+    (function () {
+      var t = localStorage.getItem("sp-theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+</body>
+</html>

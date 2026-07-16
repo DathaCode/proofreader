@@ -1,11 +1,13 @@
 # ---- Secrets (NEVER commit real keys) ----
 proxy_server/api_key.txt
+webapp/api_key.txt
 gemini_key.txt
 **/config.json
 
 # ---- Runtime / per-machine state ----
 proxy_server/proxy_config.json
 proxy_server/data/
+webapp/data/
 *.log
 
 # ---- Python cache ----

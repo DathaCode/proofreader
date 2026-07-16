@@ -1,0 +1,24 @@
+services:
+  web:
+    build: .
+    container_name: sinhala_web
+    restart: unless-stopped
+    expose:
+      - "5000"
+    volumes:
+      # Persist corrections DB, usage log, config, and API key across rebuilds.
+      - ./data:/app/data
+      - ./api_key.txt:/app/api_key.txt
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  nginx:
+    image: nginx:alpine
+    container_name: sinhala_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
