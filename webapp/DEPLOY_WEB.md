@@ -66,7 +66,8 @@ docker compose down             :: stop
 ## 3. Deploy on the server PC (Docker)
 
 1. Copy the `webapp` folder to the server PC (or `git pull` the repo there).
-2. Put the Gemini key in `api_key.txt` (or set it later in the admin panel).
+2. Set the Gemini key later in the **admin panel** (recommended — it is saved to
+   `data/api_key.txt` in the persisted volume). No file needs to pre-exist.
 3. Start:
    ```bat
    START_SERVER.bat            :: = docker compose up -d --build

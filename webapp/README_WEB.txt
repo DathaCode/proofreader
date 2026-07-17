@@ -34,7 +34,8 @@ FILES
   corrections_db.py          Shared self-learning corrections store (SQLite)
   usage_logger.py            CSV usage log
   sinhala_system_prompt.txt  The proofreading system prompt
-  api_key.txt                Gemini API key (kept out of the browser; edit or use Admin)
+  api_key.txt.example        Placeholder; the real key is set via the Admin panel
+                             and saved to data/api_key.txt (persisted, gitignored)
   templates/                 index.html (proofreader), login.html, admin.html
   static/                    style.css, app.js
   data/                      Runtime: corrections.db, usage_log.csv, web_config.json

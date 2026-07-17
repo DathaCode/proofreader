@@ -7,7 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Application code (proofreading logic reuses corrections_db.py + gemini_rest.py)
 COPY app.py web_config.py gemini_web.py gemini_rest.py lang_detect.py corrections_db.py usage_logger.py ./
-COPY sinhala_system_prompt.txt tamil_system_prompt.txt english_system_prompt.txt api_key.txt ./
+COPY sinhala_system_prompt.txt tamil_system_prompt.txt english_system_prompt.txt ./
+# NOTE: api_key.txt is NOT copied — it is gitignored and provided at runtime.
+# The key is set via the admin panel and persisted in the mounted data/ volume.
 COPY templates/ templates/
 COPY static/ static/
 

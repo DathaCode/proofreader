@@ -6,9 +6,9 @@ services:
     expose:
       - "5000"
     volumes:
-      # Persist corrections DB, usage log, config, and API key across rebuilds.
+      # Persist corrections DB, usage log, config, AND the API key (data/api_key.txt)
+      # across rebuilds. One folder mount — no fragile single-file bind.
       - ./data:/app/data
-      - ./api_key.txt:/app/api_key.txt
     environment:
       - PYTHONUNBUFFERED=1
 

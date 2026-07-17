@@ -15,7 +15,10 @@ import hashlib
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 CONFIG_PATH = os.path.join(DATA_DIR, "web_config.json")
-API_KEY_PATH = os.path.join(BASE_DIR, "api_key.txt")
+# The API key lives in the persisted data/ volume (never baked into the image,
+# never committed). A legacy path next to the code is still read for back-compat.
+API_KEY_PATH = os.path.join(DATA_DIR, "api_key.txt")
+LEGACY_API_KEY_PATH = os.path.join(BASE_DIR, "api_key.txt")
 # Per-language proofreading system prompts.
 PROMPT_PATHS = {
     "si": os.path.join(BASE_DIR, "sinhala_system_prompt.txt"),
@@ -107,10 +110,11 @@ class WebConfig:
         self.save()
         return True
 
-    # ----- API key (api_key.txt, never exposed to the browser) -----------
-    def get_api_key(self):
+    # ----- API key (in data/ volume, never exposed to the browser) -------
+    @staticmethod
+    def _read_key(path):
         try:
-            with open(API_KEY_PATH, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 key = f.readline().strip()
             if key and key != "PASTE_YOUR_GEMINI_API_KEY_HERE":
                 return key
@@ -118,7 +122,12 @@ class WebConfig:
             pass
         return ""
 
+    def get_api_key(self):
+        # Prefer the persisted data/ key; fall back to a legacy key next to code.
+        return self._read_key(API_KEY_PATH) or self._read_key(LEGACY_API_KEY_PATH)
+
     def set_api_key(self, key):
+        os.makedirs(DATA_DIR, exist_ok=True)
         with open(API_KEY_PATH, "w", encoding="utf-8") as f:
             f.write((key or "").strip() + "\n")
 
