@@ -4,12 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Proofreader — සිංහල · தமிழ் · English</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
 </head>
 <body>
   <header class="appbar">
-    <div class="brand"><span class="logo">அ</span> <span data-i18n="app_name">AI Proofreader</span></div>
+    <div class="brand"><img class="logo" src="{{ url_for('static', filename='app-icon.png') }}" alt=""> <span data-i18n="app_name">AI Proofreader</span></div>
     <div class="spacer"></div>
 
     <!-- language switcher -->
@@ -89,6 +90,11 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <footer class="appfooter">
+    <span class="warn">***Please verify Results before go LIVE!.</span>
+    <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
+  </footer>
 
   <script src="{{ url_for('static', filename='i18n.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>

@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin — Sinhala Proofreader</title>
+  <title>Admin — AI Proofreader</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    window.__HAS_KEY__ = {{ 'true' if has_key else 'false' }};
+    window.__MODEL_COUNT__ = {{ available_models|length }};
+  </script>
 </head>
 <body>
   <header class="appbar">
-    <div class="brand"><span class="logo">⚙️</span> Admin Dashboard</div>
+    <div class="brand"><img class="logo" src="{{ url_for('static', filename='app-icon.png') }}" alt=""> Admin Dashboard</div>
     <div class="spacer"></div>
     <span class="user">👤 <b>{{ username }}</b></span>
     <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" title="Theme">🌙</button>
@@ -57,11 +62,16 @@
       <h3>🛠️ Configuration</h3>
       <div class="form-row">
         <div class="field">
-          <label>Model</label>
-          <input list="modelList" id="cfgModel" value="{{ cfg.model }}">
-          <datalist id="modelList">
-            {% for m in available_models %}<option value="{{ m }}">{% endfor %}
-          </datalist>
+          <label>Model <span class="muted" id="modelCount"></span></label>
+          <select id="cfgModel">
+            {% if available_models %}
+              {% for m in available_models %}
+                <option value="{{ m }}" {% if m == cfg.model %}selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            {% else %}
+              <option value="{{ cfg.model }}" selected>{{ cfg.model }}</option>
+            {% endif %}
+          </select>
         </div>
         <div class="field"><label>Confidence threshold</label>
           <input type="number" step="0.05" min="0" max="1" id="cfgConf" value="{{ cfg.confidence_threshold }}"></div>
@@ -206,17 +216,37 @@
         <td>${esc(r.latency_ms)}</td><td>${esc(r.status)}</td></tr>`).join("");
     }
 
-    // ----- key + config -----
+    // ----- key + models + config -----
+    // Rebuild the Model <select> from a list, keeping the current model selected
+    // (and preserved even if it isn't in the fetched list).
+    function setModels(list, selected){
+      const sel=$("cfgModel"); const cur=selected || sel.value;
+      if(list && list.length){
+        sel.innerHTML=list.map(m=>`<option value="${esc(m)}"${m===cur?" selected":""}>${esc(m)}</option>`).join("");
+        if(cur && !list.includes(cur))
+          sel.insertAdjacentHTML("afterbegin",`<option value="${esc(cur)}" selected>${esc(cur)} (current)</option>`);
+      }
+      $("modelCount").textContent=(list&&list.length)?("— "+list.length+" available"):"";
+    }
+
     window.testKey = async function(){toast("Testing…"); const r=await jget("/api/admin/test_key"); toast(r.message||(r.ok?"OK":"Failed"), r.ok?"ok":"err");};
-    window.refreshModels = async function(){const r=await jget("/api/admin/refresh_models");
-      if(r.ok){toast("Loaded "+(r.available_models||[]).length+" models","ok"); const dl=$("modelList"); dl.innerHTML=(r.available_models||[]).map(m=>`<option value="${esc(m)}">`).join("");
-        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to;$("cfgModel").value=r.model_changed_to;toast("Model switched to "+r.model_changed_to,"ok");}}
-      else toast("Failed: "+(r.error||""),"err");};
+
+    window.refreshModels = async function(silent){
+      if(!silent) toast("Loading models…");
+      const r=await jget("/api/admin/refresh_models");
+      if(r.ok){
+        setModels(r.available_models||[], r.model_changed_to||null);
+        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to; if(!silent) toast("Model switched to "+r.model_changed_to,"ok");}
+        if(!silent) toast("Loaded "+(r.available_models||[]).length+" models","ok");
+      } else if(!silent) toast("Failed: "+(r.error||""),"err");
+    };
+
     window.saveKey = async function(){const key=$("apiKey").value.trim(); if(!key){toast("Enter a key","err");return;}
       const r=await jpost("/api/admin/save_key",{api_key:key});
-      if(r.ok){toast("Key saved ("+r.masked+")","ok");$("apiKey").value="";
-        const dl=$("modelList"); dl.innerHTML=(r.available_models||[]).map(m=>`<option value="${esc(m)}">`).join("");
-        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to;$("cfgModel").value=r.model_changed_to;}}
+      if(r.ok){toast("Key saved ("+r.masked+")","ok");$("apiKey").value=""; window.__HAS_KEY__=true;
+        setModels(r.available_models||[], r.model_changed_to||null);
+        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to;}
+        if(r.models_error) toast("Models: "+r.models_error,"err");}
       else toast("Save failed","err");};
     window.saveConfig = async function(){
       const body={model:$("cfgModel").value.trim(),confidence_threshold:$("cfgConf").value,
@@ -228,7 +258,16 @@
       if(r.ok){toast("Settings saved","ok");$("curModel").textContent=r.model;$("cfgUserPw").value="";$("cfgAdminPw").value="";}
       else toast("Save failed","err");};
 
+    // init model count label; auto-load models if a key is set but none loaded yet.
+    $("modelCount").textContent = window.__MODEL_COUNT__ ? ("— "+window.__MODEL_COUNT__+" available") : "";
+    if(window.__HAS_KEY__ && !window.__MODEL_COUNT__) refreshModels(true);
+
     loadCorrections(); loadUsage();
   </script>
+
+  <footer class="appfooter">
+    <span class="warn">***Please verify Results before go LIVE!.</span>
+    <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
+  </footer>
 </body>
 </html>

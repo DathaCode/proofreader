@@ -1,7 +1,7 @@
 services:
   web:
     build: .
-    container_name: sinhala_web
+    container_name: proofreader-web
     restart: unless-stopped
     expose:
       - "5000"
@@ -14,7 +14,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: sinhala_nginx
+    container_name: proofreader-nginx
     restart: unless-stopped
     ports:
       - "80:80"

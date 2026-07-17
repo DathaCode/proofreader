@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Proofreader — Sign in</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
 </head>
@@ -16,7 +17,7 @@
         <button type="button" class="lang-btn" data-lang-btn="en" title="English">EN</button>
       </div>
 
-      <div class="logo-big">அ</div>
+      <img class="logo-big" src="{{ url_for('static', filename='app-icon.png') }}" alt="">
       <h1>AI Proofreader</h1>
       <p class="sub intl" data-i18n="login_sub">Sinhala · Tamil · English Proofreader</p>
 
@@ -38,6 +39,10 @@
       <button class="btn primary" type="submit" data-i18n="login_btn">Sign in →</button>
       <p class="hint">AI Proofreader Web · v1.1</p>
     </form>
+    <footer class="appfooter login">
+      <span class="warn">***Please verify Results before go LIVE!.</span>
+      <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
+    </footer>
   </div>
   <script>
     (function () {
