@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="{{ ui_lang }}" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% if user %}
+  <header class="appbar">
+    <a class="brand" href="{{ url_for('index') }}">
+      <img class="logo" src="{{ url_for('static', filename='app-icon.png') }}" alt="">
+      <span data-i18n="app_name">AI Proofreader</span>
+    </a>
+
+    <nav class="navlinks">
+      <a href="{{ url_for('index') }}" data-i18n="nav_proofreader">Proofreader</a>
+      <a href="{{ url_for('history') }}" data-i18n="nav_history">History</a>
+      <a href="{{ url_for('profile') }}" data-i18n="nav_profile">Profile</a>
+      {% if user.role == 'admin' %}
+        <a href="{{ url_for('admin_dashboard') }}" data-i18n="nav_admin">Admin</a>
+      {% endif %}
+    </nav>
+
+    <div class="spacer"></div>
+
+    <div class="langswitch" role="group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang-btn="si" title="සිංහල">සිං</button>
+      <button type="button" class="lang-btn" data-lang-btn="ta" title="தமிழ்">த</button>
+      <button type="button" class="lang-btn" data-lang-btn="en" title="English">EN</button>
+    </div>
+
+    <span class="user">👤 <b>{{ user.username }}</b>
+      <span class="role-badge role-{{ user.role }}">{{ user.role }}</span>
+    </span>
+    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" data-i18n-title="theme" title="Theme">🌙</button>
+    <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 <span data-i18n="logout">Logout</span></a>
+  </header>
+  {% endif %}
+
+  <main class="wrap">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }} intl">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="appfooter">
+    <span class="warn">***Please verify Results before go LIVE!.</span>
+    <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem("sp-theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+      document.addEventListener("DOMContentLoaded", function () {
+        var b = document.getElementById("themeBtn");
+        if (b) b.textContent = t === "dark" ? "☀️" : "🌙";
+      });
+    })();
+    window.toggleTheme = function () {
+      var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      var next = cur === "dark" ? "light" : "dark";
+      localStorage.setItem("sp-theme", next);
+      document.documentElement.setAttribute("data-theme", next);
+      var b = document.getElementById("themeBtn");
+      if (b) b.textContent = next === "dark" ? "☀️" : "🌙";
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

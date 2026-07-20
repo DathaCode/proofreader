@@ -6,3 +6,7 @@ __pycache__/
 README*.txt
 *.md
 assets/
+.env
+.env.example
+*.sql
+api_key.txt

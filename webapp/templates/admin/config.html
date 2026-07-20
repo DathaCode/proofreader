@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Settings — Admin{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🛠️ Settings</h1>
+
+<section class="admin-section">
+  <h3>🔑 API key</h3>
+  <div class="keystatus">
+    <span class="muted">Gemini key:</span> <span class="mono">{{ api_key_masked }}</span>
+    {% if api_key_masked == 'NOT SET' %}
+      <span class="pill bad">not set</span>
+    {% else %}
+      <span class="pill ok">set</span>
+    {% endif %}
+    <button class="btn sm" onclick="testKey()">🧪 Test key</button>
+    <button class="btn sm" onclick="refreshModels()">🔄 Load models</button>
+  </div>
+  <p class="muted" style="margin-top:10px">
+    The key is read from <code>GEMINI_API_KEY</code> in <code>.env</code> (never sent to the
+    browser). To change it: edit <code>.env</code> and run <code>docker compose up -d</code>.
+  </p>
+  <p class="muted" id="modelList" style="margin-top:6px"></p>
+</section>
+
+<section class="admin-section">
+  <h3>⚙️ Application settings</h3>
+  <form method="POST" action="{{ url_for('admin_config') }}">
+    <div class="table-scroll">
+      <table class="tbl">
+        <thead><tr><th style="width:220px">Key</th><th style="width:220px">Value</th><th>Description</th><th>Updated</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="mono">{{ r.key }}</td>
+            <td>
+              {% if r.value in ['true','false'] %}
+                <select name="cfg_{{ r.key }}" class="mini-select">
+                  <option value="true"  {% if r.value=='true' %}selected{% endif %}>true</option>
+                  <option value="false" {% if r.value=='false' %}selected{% endif %}>false</option>
+                </select>
+              {% else %}
+                <input name="cfg_{{ r.key }}" value="{{ r.value }}" class="mini-input">
+              {% endif %}
+            </td>
+            <td class="muted">{{ r.description }}</td>
+            <td class="mono muted">{{ r.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn primary" type="submit">💾 Save settings</button>
+      <span class="muted" style="margin-left:10px">Saving reloads the engine immediately.</span>
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toast(m, k) {
+    const t = document.getElementById("toast");
+    t.textContent = m; t.className = "toast show " + (k || "");
+    clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 4000);
+  }
+  async function testKey() {
+    toast("Testing…");
+    const r = await fetch("/admin/test_key").then(r => r.json()).catch(() => ({ok:false,message:"request failed"}));
+    toast(r.message || (r.ok ? "OK" : "Failed"), r.ok ? "ok" : "err");
+  }
+  async function refreshModels() {
+    toast("Loading models…");
+    const r = await fetch("/admin/refresh_models").then(r => r.json()).catch(() => ({ok:false,error:"request failed"}));
+    if (r.ok) {
+      document.getElementById("modelList").textContent =
+        "Available models (" + r.available_models.length + "): " + r.available_models.join(", ");
+      toast("Loaded " + r.available_models.length + " models", "ok");
+    } else {
+      toast("Failed: " + (r.error || ""), "err");
+    }
+  }
+</script>
+{% endblock %}

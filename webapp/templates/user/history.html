@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}History — {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🕘 <span data-i18n="nav_history">History</span>
+  <span class="muted" style="font-size:14px">({{ total }})</span></h1>
+
+<section class="panel">
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr>
+        <th data-i18n="col_time">Time</th>
+        <th data-i18n="col_lang">Lang</th>
+        <th data-i18n="col_text">Text</th>
+        <th data-i18n="col_words">Words</th>
+        <th data-i18n="col_errors">Errors</th>
+        <th data-i18n="col_status">Status</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="mono">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ r.lang or '—' }}</td>
+          <td class="intl hist-text" title="{{ r.input_text or '' }}">
+            {{ (r.input_text or '')[:90] }}{% if r.input_text and r.input_text|length > 90 %}…{% endif %}
+          </td>
+          <td>{{ r.word_count }}</td>
+          <td>{{ r.errors_found }}</td>
+          <td>{% if r.status == 'ok' %}<span class="pill ok">ok</span>
+              {% else %}<span class="pill bad">{{ r.status }}</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty-state" data-i18n="no_history">
+          No proofreadings yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+      <a class="btn sm" href="{{ url_for('history', page=page-1) }}">← Prev</a>
+    {% endif %}
+    <span class="muted">Page {{ page }} / {{ pages }}</span>
+    {% if page < pages %}
+      <a class="btn sm" href="{{ url_for('history', page=page+1) }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

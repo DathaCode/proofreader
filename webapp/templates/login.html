@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Proofreader — Sign in</title>
+  <title>{{ app_name }} — Sign in</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
 </head>
 <body>
   <div class="login-wrap">
-    <form class="login-card" method="POST" action="{{ url_for('login') }}{% if next %}?next={{ next }}{% endif %}">
+    <form class="login-card" method="POST"
+          action="{{ url_for('login') }}{% if next %}?next={{ next }}{% endif %}">
       <div class="langswitch" style="margin: 0 auto 18px; width: max-content;">
         <button type="button" class="lang-btn" data-lang-btn="si" title="සිංහල">සිං</button>
         <button type="button" class="lang-btn" data-lang-btn="ta" title="தமிழ்">த</button>
@@ -18,7 +21,7 @@
       </div>
 
       <img class="logo-big" src="{{ url_for('static', filename='app-icon.png') }}" alt="">
-      <h1>AI Proofreader</h1>
+      <h1>{{ app_name }}</h1>
       <p class="sub intl" data-i18n="login_sub">Sinhala · Tamil · English Proofreader</p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -37,19 +40,27 @@
         <input type="password" id="password" name="password" autocomplete="current-password" required>
       </div>
       <button class="btn primary" type="submit" data-i18n="login_btn">Sign in →</button>
-      <p class="hint">AI Proofreader Web · v1.1</p>
+
+      {% if allow_registration %}
+        <p class="hint">
+          <span data-i18n="no_account">No account?</span>
+          <a class="link" href="{{ url_for('register') }}" data-i18n="register_link">Register</a>
+        </p>
+      {% endif %}
     </form>
+
     <footer class="appfooter login">
       <span class="warn">***Please verify Results before go LIVE!.</span>
       <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
     </footer>
   </div>
+
   <script>
     (function () {
       var t = localStorage.getItem("sp-theme") || "light";
       document.documentElement.setAttribute("data-theme", t);
     })();
   </script>
-  <script src="{{ url_for('static', filename='i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 </body>
 </html>

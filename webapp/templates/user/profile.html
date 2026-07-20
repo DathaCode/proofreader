@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Profile — {{ app_name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">👤 <span data-i18n="nav_profile">Profile</span></h1>
+
+<div class="cards">
+  <div class="stat-card"><div class="k" data-i18n="stat_role">Role</div>
+    <div class="v" style="font-size:18px">{{ profile.role }}</div></div>
+  <div class="stat-card"><div class="k" data-i18n="stat_logins">Logins</div>
+    <div class="v">{{ profile.login_count }}</div></div>
+  <div class="stat-card"><div class="k" data-i18n="stat_proofreads">Proofreads</div>
+    <div class="v">{{ history_count }}</div></div>
+  <div class="stat-card"><div class="k" data-i18n="stat_member_since">Member since</div>
+    <div class="v" style="font-size:15px">{{ profile.created_at.strftime('%Y-%m-%d') }}</div></div>
+</div>
+
+<div class="grid">
+  <section class="panel">
+    <h2>✏️ <span data-i18n="edit_profile">Edit profile</span></h2>
+    <form method="POST" action="{{ url_for('profile') }}">
+      <input type="hidden" name="action" value="profile">
+      <div class="field">
+        <label data-i18n="username_label">Username</label>
+        <input value="{{ profile.username }}" disabled>
+      </div>
+      <div class="field">
+        <label data-i18n="fullname_label">Full name</label>
+        <input class="intl" name="full_name" value="{{ profile.full_name or '' }}">
+      </div>
+      <div class="field">
+        <label data-i18n="email_label">Email</label>
+        <input type="email" name="email" value="{{ profile.email }}" required>
+      </div>
+      <button class="btn primary" type="submit" data-i18n="save_btn_generic">Save changes</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>🔒 <span data-i18n="change_password">Change password</span></h2>
+    <form method="POST" action="{{ url_for('profile') }}">
+      <input type="hidden" name="action" value="password">
+      <div class="field">
+        <label data-i18n="current_password">Current password</label>
+        <input type="password" name="current_password" required>
+      </div>
+      <div class="field">
+        <label data-i18n="new_password">New password</label>
+        <input type="password" name="new_password" minlength="8" required>
+      </div>
+      <div class="field">
+        <label data-i18n="confirm_label">Confirm password</label>
+        <input type="password" name="confirm_password" minlength="8" required>
+      </div>
+      <button class="btn primary" type="submit" data-i18n="change_password">Change password</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:18px">
+  <h2>💻 <span data-i18n="active_sessions">Active sessions</span></h2>
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr><th>Created</th><th>Last activity</th><th>Expires</th><th>IP</th><th>Device</th></tr></thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td class="mono">{{ s.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.last_activity.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.ip_address or '—' }}</td>
+          <td class="muted" style="max-width:320px;overflow:hidden;text-overflow:ellipsis">
+            {{ (s.user_agent or '—')[:70] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

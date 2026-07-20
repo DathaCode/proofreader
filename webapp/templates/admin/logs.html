@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Logs — Admin{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📊 Logs</h1>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('proofread', this)">Proofread logs</button>
+  <button class="tab" onclick="showTab('sessions', this)">Session logs</button>
+  <button class="tab" onclick="showTab('daily', this)">Daily totals</button>
+</div>
+
+<section class="admin-section tab-panel" id="tab-proofread">
+  <h3>Last 50 proofread requests</h3>
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr>
+        <th>Time</th><th>User</th><th>Lang</th><th>Words</th><th>Errors</th>
+        <th>Pre-fixed</th><th>ms</th><th>Model</th><th>IP</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        {% for r in proofread_logs %}
+        <tr>
+          <td class="mono">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>{{ r.username or '—' }}</td>
+          <td>{{ r.lang or '—' }}</td>
+          <td>{{ r.word_count }}</td>
+          <td>{{ r.errors_found }}</td>
+          <td>{{ r.pre_fixed }}</td>
+          <td>{{ r.duration_ms }}</td>
+          <td class="mono">{{ r.model_used or '—' }}</td>
+          <td class="mono">{{ r.ip_address or '—' }}</td>
+          <td>{% if r.status == 'ok' %}<span class="pill ok">ok</span>
+              {% else %}<span class="pill bad">{{ r.status }}</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" class="muted">No proofread logs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="admin-section tab-panel" id="tab-sessions" hidden>
+  <h3>Last 50 sessions</h3>
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr>
+        <th>User</th><th>Created</th><th>Last activity</th><th>Expires</th>
+        <th>IP</th><th>Active</th>
+      </tr></thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td>{{ s.username or '—' }}</td>
+          <td class="mono">{{ s.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.last_activity.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.expires_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="mono">{{ s.ip_address or '—' }}</td>
+          <td>{% if s.is_active %}<span class="pill ok">active</span>
+              {% else %}<span class="pill">ended</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No sessions yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="admin-section tab-panel" id="tab-daily" hidden>
+  <h3>Daily totals (last 14 days)</h3>
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr><th>Day</th><th>Requests</th><th>Words</th><th>Errors</th></tr></thead>
+      <tbody>
+        {% for d in daily %}
+        <tr>
+          <td class="mono">{{ d.day }}</td>
+          <td>{{ d.requests }}</td>
+          <td>{{ d.words }}</td>
+          <td>{{ d.errors }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted">No data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function showTab(name, btn) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.hidden = true);
+    document.getElementById("tab-" + name).hidden = false;
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+  }
+</script>
+{% endblock %}

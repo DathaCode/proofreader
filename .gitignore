@@ -1,6 +1,8 @@
 # ---- Secrets (NEVER commit real keys) ----
 proxy_server/api_key.txt
 webapp/api_key.txt
+webapp/.env
+.env
 gemini_key.txt
 **/config.json
 

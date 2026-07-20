@@ -1,102 +1,67 @@
-<!DOCTYPE html>
-<html lang="{{ ui_lang }}" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Proofreader — සිංහල · தமிழ் · English</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
-</head>
-<body>
-  <header class="appbar">
-    <div class="brand"><img class="logo" src="{{ url_for('static', filename='app-icon.png') }}" alt=""> <span data-i18n="app_name">AI Proofreader</span></div>
-    <div class="spacer"></div>
+{% extends "base.html" %}
+{% block title %}{{ app_name }} — සිංහල · தமிழ் · English{% endblock %}
 
-    <!-- language switcher -->
-    <div class="langswitch" role="group" aria-label="Language">
-      <button class="lang-btn" data-lang-btn="si" title="සිංහල">සිං</button>
-      <button class="lang-btn" data-lang-btn="ta" title="தமிழ்">த</button>
-      <button class="lang-btn" data-lang-btn="en" title="English">EN</button>
+{% block content %}
+<div class="grid">
+  <!-- LEFT: input -->
+  <section class="panel">
+    <h2>📝 <span data-i18n="input_heading">Input text</span></h2>
+    <textarea id="input" class="intl" data-i18n-ph="input_placeholder"
+      placeholder="Enter your text here..."></textarea>
+    <div class="counter" id="counter"></div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="checkText()"><span data-i18n="check_btn">✅ Check</span></button>
+      <button class="btn ghost" onclick="clearText()"><span data-i18n="clear_btn">🗑️ Clear</span></button>
+      <span class="langpick">
+        <label class="lbl" data-i18n="text_lang_label">Text language</label>
+        <select id="textLang">
+          <option value="" data-i18n="lang_auto">Auto-detect</option>
+          <option value="si" data-i18n="lang_si">Sinhala</option>
+          <option value="ta" data-i18n="lang_ta">Tamil</option>
+          <option value="en" data-i18n="lang_en">English</option>
+        </select>
+      </span>
     </div>
+  </section>
 
-    <span class="user">👤 <b>{{ username }}</b>{% if role == 'admin' %} · admin{% endif %}</span>
-    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" data-i18n-title="theme" title="Theme">🌙</button>
-    {% if role == 'admin' %}
-      <a class="btn ghost sm" href="{{ url_for('admin') }}">⚙️ <span data-i18n="admin_link">Admin</span></a>
-    {% endif %}
-    <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 <span data-i18n="logout">Logout</span></a>
-  </header>
+  <!-- RIGHT: results -->
+  <section class="panel">
+    <h2>🔍 <span data-i18n="results_heading">Results</span>
+      <span id="detected" class="detected-badge" hidden></span></h2>
+    <div class="chips" id="chips"></div>
+    <div class="label-row"><span class="lbl" data-i18n="highlighted_label">Highlighted text</span></div>
+    <div id="highlighted" class="result-box empty intl" data-i18n="results_placeholder">Results appear here…</div>
 
-  <main class="wrap">
-    <div class="grid">
-      <!-- LEFT: input -->
-      <section class="panel">
-        <h2>📝 <span data-i18n="input_heading">Input text</span></h2>
-        <textarea id="input" class="intl" data-i18n-ph="input_placeholder"
-          placeholder="Enter your text here..."></textarea>
-        <div class="counter" id="counter"></div>
-        <div class="toolbar">
-          <button class="btn primary" onclick="checkText()"><span data-i18n="check_btn">✅ Check</span></button>
-          <button class="btn ghost" onclick="clearText()"><span data-i18n="clear_btn">🗑️ Clear</span></button>
-          <span class="langpick">
-            <label class="lbl" data-i18n="text_lang_label">Text language</label>
-            <select id="textLang">
-              <option value="" data-i18n="lang_auto">Auto-detect</option>
-              <option value="si" data-i18n="lang_si">Sinhala</option>
-              <option value="ta" data-i18n="lang_ta">Tamil</option>
-              <option value="en" data-i18n="lang_en">English</option>
-            </select>
-          </span>
-        </div>
-      </section>
-
-      <!-- RIGHT: results -->
-      <section class="panel">
-        <h2>🔍 <span data-i18n="results_heading">Results</span>
-          <span id="detected" class="detected-badge" hidden></span></h2>
-        <div class="chips" id="chips"></div>
-        <div class="label-row"><span class="lbl" data-i18n="highlighted_label">Highlighted text</span></div>
-        <div id="highlighted" class="result-box empty intl" data-i18n="results_placeholder">Results appear here…</div>
-
-        <div class="label-row">
-          <span class="lbl" data-i18n="corrected_label">Corrected text (editable)</span>
-        </div>
-        <textarea id="corrected" class="intl" data-i18n-ph="corrected_placeholder"
-          placeholder="Corrected text appears here…"></textarea>
-        <div class="toolbar">
-          <button class="btn" onclick="copyCorrected()"><span data-i18n="copy_btn">📋 Copy</span></button>
-          <button class="btn" onclick="saveCorrections()"><span data-i18n="save_btn">✍️ Save my corrections</span></button>
-        </div>
-        <p class="summary intl" id="summary"></p>
-      </section>
+    <div class="label-row">
+      <span class="lbl" data-i18n="corrected_label">Corrected text (editable)</span>
     </div>
-
-    <!-- error list -->
-    <section class="panel errorlist">
-      <h2>📋 <span data-i18n="errorlist_heading">Error list</span></h2>
-      <div class="items" id="errorItems">
-        <div class="empty-state" data-i18n="errors_placeholder">Enter text and press Check.</div>
-      </div>
-    </section>
-  </main>
-
-  <!-- loading overlay -->
-  <div class="overlay" id="overlay">
-    <div class="card">
-      <div class="spinner"></div>
-      <div class="msg" id="loadingMsg" data-i18n="loading_msg">Checking with Gemini...</div>
+    <textarea id="corrected" class="intl" data-i18n-ph="corrected_placeholder"
+      placeholder="Corrected text appears here…"></textarea>
+    <div class="toolbar">
+      <button class="btn" onclick="copyCorrected()"><span data-i18n="copy_btn">📋 Copy</span></button>
+      <button class="btn" onclick="saveCorrections()"><span data-i18n="save_btn">✍️ Save my corrections</span></button>
     </div>
+    <p class="summary intl" id="summary"></p>
+  </section>
+</div>
+
+<!-- error list -->
+<section class="panel errorlist">
+  <h2>📋 <span data-i18n="errorlist_heading">Error list</span></h2>
+  <div class="items" id="errorItems">
+    <div class="empty-state" data-i18n="errors_placeholder">Enter text and press Check.</div>
   </div>
+</section>
 
-  <div class="toast" id="toast"></div>
+<!-- loading overlay -->
+<div class="overlay" id="overlay">
+  <div class="card">
+    <div class="spinner"></div>
+    <div class="msg" id="loadingMsg" data-i18n="loading_msg">Checking with Gemini...</div>
+  </div>
+</div>
+{% endblock %}
 
-  <footer class="appfooter">
-    <span class="warn">***Please verify Results before go LIVE!.</span>
-    <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
-  </footer>
-
-  <script src="{{ url_for('static', filename='i18n.js') }}"></script>
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
-</html>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

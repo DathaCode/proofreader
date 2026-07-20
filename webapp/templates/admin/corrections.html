@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Corrections — Admin{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📚 Corrections</h1>
+
+<div class="cards">
+  <div class="stat-card"><div class="k">Total</div><div class="v">{{ stats.total }}</div></div>
+  <div class="stat-card"><div class="k">Precheck</div><div class="v">{{ stats.precheck }}</div></div>
+  <div class="stat-card"><div class="k">Inject only</div><div class="v">{{ stats.inject }}</div></div>
+  <div class="stat-card"><div class="k">Disabled</div><div class="v">{{ stats.disabled }}</div></div>
+  <div class="stat-card"><div class="k">Confirmed</div><div class="v">{{ stats.confirmed }}</div></div>
+</div>
+
+<section class="admin-section">
+  <h3>➕ Add correction</h3>
+  <form method="POST" action="{{ url_for('admin_corrections_add') }}" class="form-row">
+    <div class="field"><label>Wrong (වැරදි)</label><input class="intl" name="wrong" required></div>
+    <div class="field"><label>Correct (නිවැරදි)</label><input class="intl" name="correct" required></div>
+    <div class="field"><label>Type</label>
+      <select name="type">
+        <option value="spelling">spelling</option>
+        <option value="grammar">grammar</option>
+        <option value="encoding_error">encoding_error</option>
+        <option value="punctuation">punctuation</option>
+      </select>
+    </div>
+    <div class="field"><label>Language</label>
+      <select name="lang">
+        <option value="si">Sinhala</option>
+        <option value="ta">Tamil</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <button class="btn primary" type="submit">Add</button>
+  </form>
+</section>
+
+<section class="admin-section">
+  <h3>Search &amp; moderate</h3>
+  <form method="GET" action="{{ url_for('admin_corrections') }}" class="search-row">
+    <input class="intl" name="q" value="{{ q }}" placeholder="Search wrong / correct / type…">
+    <button class="btn" type="submit">🔍 Search</button>
+    <a class="btn ghost" href="{{ url_for('admin_export_corrections') }}">⬇ Export JSON</a>
+  </form>
+
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead><tr>
+        <th>Wrong</th><th>Correct</th><th>Type</th><th>Lang</th><th>Count</th>
+        <th>Mode</th><th>Confirmed</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        {% for c in items %}
+        <tr>
+          <td class="intl">{{ c.wrong }}</td>
+          <td class="intl">{{ c.correct }}</td>
+          <td>{{ c.type }}</td>
+          <td>{{ c.lang }}</td>
+          <td>{{ c.count }}</td>
+          <td><span class="mode-badge mode-{{ c.mode }}">{{ c.mode }}</span></td>
+          <td>{{ '✔' if c.confirmed else '—' }}</td>
+          <td class="nowrap">
+            {% for act, label in [('confirm','Confirm'), ('precheck','Precheck'),
+                                  ('inject_only','Inject'), ('disabled','Disable')] %}
+              <form method="POST" action="{{ url_for('admin_corrections_mode', correction_id=c.id) }}" style="display:inline">
+                <input type="hidden" name="action" value="{{ act }}">
+                <input type="hidden" name="q" value="{{ q }}">
+                <button class="btn sm" type="submit">{{ label }}</button>
+              </form>
+            {% endfor %}
+            <form method="POST" action="{{ url_for('admin_corrections_mode', correction_id=c.id) }}"
+                  style="display:inline" onsubmit="return confirm('Delete this correction?')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="q" value="{{ q }}">
+              <button class="btn sm danger" type="submit">Del</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="muted">No corrections found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
