@@ -59,6 +59,14 @@ class CorrectionsDB:
         # One shared connection, reused for every query. check_same_thread=False
         # lets the proxy's worker threads use it; self.lock serializes access.
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        # WAL (Write-Ahead Logging) mode: readers no longer block the writer and
+        # the writer no longer blocks readers, so concurrent proofreading requests
+        # don't serialize on the DB; it also survives crashes/power loss more
+        # cleanly (committed changes live in the -wal file and are checkpointed
+        # back into the main DB). synchronous=NORMAL is the safe, faster pairing
+        # recommended with WAL. Must run right after connect, before any query.
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         self._conn.commit()

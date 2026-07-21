@@ -2,6 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# sqlite3 CLI: lets `make db-check` and `docker compose exec web sqlite3 ...`
+# inspect the DB (e.g. verify WAL mode) from inside the container.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
