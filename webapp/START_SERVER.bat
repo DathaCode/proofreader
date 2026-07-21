@@ -1,15 +1,18 @@
 @echo off
-chcp 65001 >nul
 cd /d F:\projects\proofreader\webapp
-echo Starting Sinhala Proofreader (db + api + nginx + pgadmin)...
+echo Building and starting Sinhala Proofreader Web App...
 docker compose up -d --build
 echo.
 echo ============================================================
-echo  Server running:
-echo     App:     http://localhost
-echo     Admin:   http://localhost/admin
-echo     pgAdmin: http://localhost:5050
+echo  Server started.
+echo  Users access:  http://sinhalaproof.duckdns.org
+echo  Local test:    http://localhost
+echo  Admin panel:   http://sinhalaproof.duckdns.org/admin
 echo ============================================================
-echo  Default admin login: admin / admin1234  (CHANGE IT)
-echo  Set the Gemini key in .env (GEMINI_API_KEY), then restart.
+echo.
+echo  Default logins:
+echo    User : sinhala / proof123
+echo    Admin: admin   / admin1234
+echo.
+echo  Set your Gemini API key in the Admin panel (or edit api_key.txt).
 pause

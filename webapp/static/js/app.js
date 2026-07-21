@@ -237,7 +237,7 @@
       const res = await fetch("/api/corrections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ corrections, lang: (lastResult && lastResult.lang) || "si" }),
+        body: JSON.stringify({ corrections }),
       });
       const data = await res.json();
       if (data.ok) { toast(window.t("saved_n", data.saved), "ok"); lastCorrectedText = edited; }
