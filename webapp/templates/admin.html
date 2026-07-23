@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — AI Proofreader</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+    window.__HAS_KEY__ = {{ 'true' if has_key else 'false' }};
+    window.__MODEL_COUNT__ = {{ available_models|length }};
+  </script>
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand"><img class="logo" src="{{ url_for('static', filename='app-icon.png') }}" alt=""> Admin Dashboard</div>
+    <div class="spacer"></div>
+    <span class="user">👤 <b>{{ username }}</b></span>
+    <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" title="Theme">🌙</button>
+    <a class="btn ghost sm" href="{{ url_for('index') }}">📝 Proofreader</a>
+    <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 Logout</a>
+  </header>
+
+  <main class="wrap">
+    <!-- stats cards -->
+    <div class="cards">
+      <div class="stat-card"><div class="k">Requests today</div><div class="v" id="cReqToday">—</div></div>
+      <div class="stat-card"><div class="k">Words today</div><div class="v" id="cWordsToday">—</div></div>
+      <div class="stat-card"><div class="k">Errors today</div><div class="v" id="cErrToday">—</div></div>
+      <div class="stat-card"><div class="k">Total requests</div><div class="v">{{ usage.total_requests }}</div></div>
+      <div class="stat-card"><div class="k">Corrections</div><div class="v">{{ stats.total }}</div></div>
+      <div class="stat-card"><div class="k">Pre-fix (precheck)</div><div class="v">{{ stats.precheck }}</div></div>
+    </div>
+
+    <!-- API key + model status -->
+    <section class="admin-section">
+      <h3>🔑 API Key & Model</h3>
+      <div class="keystatus">
+        <span class="muted">Key:</span>
+        <span class="mono">{{ api_key_masked }}</span>
+        {% if model_ready %}
+          <span class="pill ok">model ready</span>
+        {% else %}
+          <span class="pill bad">not ready</span>
+        {% endif %}
+        <span class="muted">Model:</span> <span class="mono" id="curModel">{{ cfg.model }}</span>
+        <button class="btn sm" onclick="testKey()">🧪 Test key</button>
+        <button class="btn sm" onclick="refreshModels()">🔄 Refresh models</button>
+      </div>
+      {% if model_error %}<p class="muted" style="margin-top:8px">{{ model_error }}</p>{% endif %}
+      <div class="form-row" style="margin-top:14px">
+        <div class="field">
+          <label>Set / update Gemini API key</label>
+          <input type="password" id="apiKey" placeholder="AIza…">
+        </div>
+        <button class="btn primary" onclick="saveKey()">Save key</button>
+      </div>
+    </section>
+
+    <!-- config -->
+    <section class="admin-section">
+      <h3>🛠️ Configuration</h3>
+      <div class="form-row">
+        <div class="field">
+          <label>Model <span class="muted" id="modelCount"></span></label>
+          <select id="cfgModel">
+            {% if available_models %}
+              {% for m in available_models %}
+                <option value="{{ m }}" {% if m == cfg.model %}selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            {% else %}
+              <option value="{{ cfg.model }}" selected>{{ cfg.model }}</option>
+            {% endif %}
+          </select>
+        </div>
+        <div class="field"><label>Confidence threshold</label>
+          <input type="number" step="0.05" min="0" max="1" id="cfgConf" value="{{ cfg.confidence_threshold }}"></div>
+        <div class="field"><label>Precheck threshold</label>
+          <input type="number" id="cfgPrecheck" value="{{ cfg.precheck_threshold }}"></div>
+        <div class="field"><label>Inject top N</label>
+          <input type="number" id="cfgInject" value="{{ cfg.inject_top_n }}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Max concurrent</label>
+          <input type="number" id="cfgConcurrent" value="{{ cfg.max_concurrent }}"></div>
+        <div class="field"><label>Request timeout (s)</label>
+          <input type="number" id="cfgTimeout" value="{{ cfg.request_timeout }}"></div>
+        <div class="field"><label>Rate limit /min per IP</label>
+          <input type="number" id="cfgRate" value="{{ cfg.rate_limit_per_min }}"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>New user password (sinhala)</label>
+          <input type="password" id="cfgUserPw" placeholder="leave blank to keep"></div>
+        <div class="field"><label>New admin password (admin)</label>
+          <input type="password" id="cfgAdminPw" placeholder="leave blank to keep"></div>
+        <button class="btn primary" onclick="saveConfig()">💾 Save settings</button>
+      </div>
+    </section>
+
+    <!-- corrections -->
+    <section class="admin-section">
+      <h3>📚 Corrections</h3>
+      <div class="form-row">
+        <div class="field"><label>Wrong (වැරදි)</label><input class="si" id="addWrong"></div>
+        <div class="field"><label>Correct (නිවැරදි)</label><input class="si" id="addCorrect"></div>
+        <div class="field"><label>Type</label>
+          <input list="typeList" id="addType" value="spelling">
+          <datalist id="typeList"><option value="spelling"><option value="grammar"><option value="encoding_error"></datalist>
+        </div>
+        <button class="btn primary" onclick="addCorrection()">➕ Add</button>
+      </div>
+      <div class="search-row">
+        <input class="si" id="searchBox" placeholder="Search corrections…" oninput="debouncedLoad()">
+        <button class="btn" onclick="loadCorrections()">🔍 Search</button>
+      </div>
+      <div class="table-scroll">
+        <table class="tbl">
+          <thead><tr>
+            <th data-sort="wrong">Wrong</th><th data-sort="correct">Correct</th>
+            <th data-sort="type">Type</th><th data-sort="count">Count</th>
+            <th data-sort="mode">Mode</th><th>Confirmed</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="corrBody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- usage log -->
+    <section class="admin-section">
+      <h3>📊 Usage log (last 50)</h3>
+      <div class="table-scroll">
+        <table class="tbl">
+          <thead><tr><th>Time</th><th>IP</th><th>Words</th><th>Errors</th><th>Pre-fixed</th><th>ms</th><th>Status</th></tr></thead>
+          <tbody id="usageBody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function(){ var t = localStorage.getItem("sp-theme")||"light"; document.documentElement.setAttribute("data-theme",t);
+      document.getElementById("themeBtn").textContent = t==="dark"?"☀️":"🌙"; })();
+    window.toggleTheme = function(){
+      var cur = document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";
+      var next = cur==="dark"?"light":"dark"; localStorage.setItem("sp-theme",next);
+      document.documentElement.setAttribute("data-theme",next);
+      document.getElementById("themeBtn").textContent = next==="dark"?"☀️":"🌙";
+    };
+    const $ = (id)=>document.getElementById(id);
+    function esc(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+    function toast(m,k){const t=$("toast");t.textContent=m;t.className="toast show "+(k||"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="toast",3000);}
+    async function jget(u){const r=await fetch(u);if(r.status===401){location="/login";return{};}return r.json();}
+    async function jpost(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});if(r.status===401){location="/login";return{};}return r.json();}
+
+    // ----- corrections table -----
+    let corrData = [], sortKey="count", sortDir=-1;
+    async function loadCorrections(){
+      const q = encodeURIComponent($("searchBox").value.trim());
+      const data = await jget("/admin/corrections"+(q?("?q="+q):""));
+      corrData = data.items||[];
+      renderCorr();
+    }
+    function renderCorr(){
+      corrData.sort((a,b)=>{
+        let x=a[sortKey], y=b[sortKey];
+        if(typeof x==="string"){x=(x||"").toLowerCase();y=(y||"").toLowerCase();}
+        return x<y?-1*sortDir : x>y?1*sortDir : 0;
+      });
+      const body=$("corrBody");
+      if(!corrData.length){body.innerHTML='<tr><td colspan="7" class="muted">No corrections.</td></tr>';return;}
+      body.innerHTML = corrData.map(c=>`<tr>
+        <td class="si">${esc(c.wrong)}</td><td class="si">${esc(c.correct)}</td>
+        <td>${esc(c.type)}</td><td>${c.count}</td>
+        <td><span class="mode-badge mode-${c.mode}">${c.mode}</span></td>
+        <td>${c.confirmed?"✔":"—"}</td>
+        <td>
+          <button class="btn sm" onclick="corrAction('${c.id}','confirm')">Confirm</button>
+          <button class="btn sm" onclick="corrAction('${c.id}','precheck')">Precheck</button>
+          <button class="btn sm" onclick="corrAction('${c.id}','disabled')">Disable</button>
+          <button class="btn sm danger" onclick="corrAction('${c.id}','delete')">Del</button>
+        </td></tr>`).join("");
+    }
+    document.querySelectorAll("th[data-sort]").forEach(th=>{
+      th.style.cursor="pointer";
+      th.onclick=()=>{const k=th.dataset.sort; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} renderCorr();};
+    });
+    window.corrAction = async function(id,action){
+      if(action==="delete" && !confirm("Delete this correction?"))return;
+      const r = await jpost("/api/admin/correction/action",{id,action});
+      if(r.ok){toast("Done: "+action,"ok"); loadCorrections();} else toast("Action failed","err");
+    };
+    window.addCorrection = async function(){
+      const wrong=$("addWrong").value.trim(), correct=$("addCorrect").value.trim(), type=$("addType").value.trim()||"spelling";
+      if(!wrong||!correct){toast("Enter both words","err");return;}
+      const r = await jpost("/api/admin/correction/add",{wrong,correct,type});
+      if(r.ok){toast("Added ("+r.status+")","ok");$("addWrong").value="";$("addCorrect").value="";loadCorrections();}
+      else toast("Add failed","err");
+    };
+    let _dt; window.debouncedLoad=function(){clearTimeout(_dt);_dt=setTimeout(loadCorrections,300);};
+
+    // ----- usage -----
+    async function loadUsage(){
+      const d = await jget("/api/admin/usage");
+      const rows=d.rows||[], daily=d.daily||{};
+      const today = new Date().toISOString().slice(0,10);
+      const t = daily[today]||{requests:0,words:0,errors:0};
+      $("cReqToday").textContent=t.requests; $("cWordsToday").textContent=t.words; $("cErrToday").textContent=t.errors;
+      const body=$("usageBody");
+      if(!rows.length){body.innerHTML='<tr><td colspan="7" class="muted">No usage yet.</td></tr>';return;}
+      body.innerHTML=rows.map(r=>`<tr>
+        <td class="mono">${esc((r.timestamp||"").replace("T"," ").slice(0,19))}</td>
+        <td class="mono">${esc(r.client_ip)}</td><td>${esc(r.words)}</td>
+        <td>${esc(r.errors_found)}</td><td>${esc(r.pre_fixed)}</td>
+        <td>${esc(r.latency_ms)}</td><td>${esc(r.status)}</td></tr>`).join("");
+    }
+
+    // ----- key + models + config -----
+    // Rebuild the Model <select> from a list, keeping the current model selected
+    // (and preserved even if it isn't in the fetched list).
+    function setModels(list, selected){
+      const sel=$("cfgModel"); const cur=selected || sel.value;
+      if(list && list.length){
+        sel.innerHTML=list.map(m=>`<option value="${esc(m)}"${m===cur?" selected":""}>${esc(m)}</option>`).join("");
+        if(cur && !list.includes(cur))
+          sel.insertAdjacentHTML("afterbegin",`<option value="${esc(cur)}" selected>${esc(cur)} (current)</option>`);
+      }
+      $("modelCount").textContent=(list&&list.length)?("— "+list.length+" available"):"";
+    }
+
+    window.testKey = async function(){toast("Testing…"); const r=await jget("/api/admin/test_key"); toast(r.message||(r.ok?"OK":"Failed"), r.ok?"ok":"err");};
+
+    window.refreshModels = async function(silent){
+      if(!silent) toast("Loading models…");
+      const r=await jget("/api/admin/refresh_models");
+      if(r.ok){
+        setModels(r.available_models||[], r.model_changed_to||null);
+        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to; if(!silent) toast("Model switched to "+r.model_changed_to,"ok");}
+        if(!silent) toast("Loaded "+(r.available_models||[]).length+" models","ok");
+      } else if(!silent) toast("Failed: "+(r.error||""),"err");
+    };
+
+    window.saveKey = async function(){const key=$("apiKey").value.trim(); if(!key){toast("Enter a key","err");return;}
+      const r=await jpost("/api/admin/save_key",{api_key:key});
+      if(r.ok){toast("Key saved ("+r.masked+")","ok");$("apiKey").value=""; window.__HAS_KEY__=true;
+        setModels(r.available_models||[], r.model_changed_to||null);
+        if(r.model_changed_to){$("curModel").textContent=r.model_changed_to;}
+        if(r.models_error) toast("Models: "+r.models_error,"err");}
+      else toast("Save failed","err");};
+    window.saveConfig = async function(){
+      const body={model:$("cfgModel").value.trim(),confidence_threshold:$("cfgConf").value,
+        precheck_threshold:$("cfgPrecheck").value,inject_top_n:$("cfgInject").value,
+        max_concurrent:$("cfgConcurrent").value,request_timeout:$("cfgTimeout").value,
+        rate_limit_per_min:$("cfgRate").value,
+        user_password:$("cfgUserPw").value,admin_password:$("cfgAdminPw").value};
+      const r=await jpost("/api/admin/config",body);
+      if(r.ok){toast("Settings saved","ok");$("curModel").textContent=r.model;$("cfgUserPw").value="";$("cfgAdminPw").value="";}
+      else toast("Save failed","err");};
+
+    // init model count label; auto-load models if a key is set but none loaded yet.
+    $("modelCount").textContent = window.__MODEL_COUNT__ ? ("— "+window.__MODEL_COUNT__+" available") : "";
+    if(window.__HAS_KEY__ && !window.__MODEL_COUNT__) refreshModels(true);
+
+    loadCorrections(); loadUsage();
+  </script>
+
+  <footer class="appfooter">
+    <span class="warn">***Please verify Results before go LIVE!.</span>
+    <span class="credit">Developped by Vidath Dulanjith - Lotus Technologies</span>
+  </footer>
+</body>
+</html>
