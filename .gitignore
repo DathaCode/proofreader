@@ -4,6 +4,8 @@ webapp/api_key.txt
 webapp/.env
 .env
 gemini_key.txt
+# TLS private keys / certs live only on the server, never in git
+webapp/certs/
 **/config.json
 
 # ---- Runtime / per-machine state ----
