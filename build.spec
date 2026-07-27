@@ -11,12 +11,20 @@ Output:
 """
 
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import (
+    collect_data_files, collect_submodules, collect_dynamic_libs,
+)
 
 block_cipher = None
 
 # Gemini-only app — no offline dictionary needed.
 datas = []
+binaries = []
+
+# sounddevice ships the PortAudio DLL as package data + loads it via cffi.
+# Bundle the DLL and cffi backend so voice recording works in the frozen .exe.
+datas += collect_data_files("sounddevice")
+binaries += collect_dynamic_libs("sounddevice")
 
 # Bundle the app icon(s) so the running app can set its window/taskbar icon.
 for _icon in ("icon.ico", "icon.png"):
@@ -31,7 +39,8 @@ datas += collect_data_files("customtkinter")
 # the API works inside the frozen .exe.
 hiddenimports = ["customtkinter", "requests",
                  "engine.corrections_db", "engine.lan_proxy_engine",
-                 "engine.audio_recorder", "gui.voice_button"]
+                 "engine.audio_recorder", "gui.voice_button",
+                 "sounddevice", "cffi", "_cffi_backend"]
 hiddenimports += collect_submodules("google.generativeai")
 hiddenimports += collect_submodules("google.ai.generativelanguage")
 
@@ -58,7 +67,7 @@ EXCLUDES = [
 a = Analysis(
     ["main.py"],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

@@ -1,9 +1,11 @@
-297 INFO: PyInstaller: 6.17.0, contrib hooks: 2025.11
-298 INFO: Python: 3.14.0
-332 INFO: Platform: Windows-11-10.0.26200-SP0
-332 INFO: Python environment: C:\Program Files\Python314
-336 INFO: Removing temporary files and cleaning cache in C:\Users\Hp\AppData\Local\pyinstaller
-2810 INFO: Module search paths (PYTHONPATH):
+462 INFO: PyInstaller: 6.17.0, contrib hooks: 2025.11
+462 INFO: Python: 3.14.0
+528 INFO: Platform: Windows-11-10.0.26200-SP0
+529 INFO: Python environment: C:\Program Files\Python314
+536 INFO: Removing temporary files and cleaning cache in C:\Users\Hp\AppData\Local\pyinstaller
+544 WARNING: collect_data_files - skipping data collection for module 'sounddevice' as it is not a package.
+545 WARNING: collect_dynamic_libs - skipping library collection for module 'sounddevice' as it is not a package.
+4950 INFO: Module search paths (PYTHONPATH):
 ['F:\\projects\\proofreader',
  'C:\\Program Files\\Python314\\python314.zip',
  'C:\\Program Files\\Python314\\DLLs',
@@ -15,111 +17,112 @@
  'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\Pythonwin',
  'C:\\Program Files\\Python314\\Lib\\site-packages',
  'F:\\projects\\proofreader']
-6396 INFO: Appending 'datas' from .spec
-6397 INFO: checking Analysis
-6397 INFO: Building Analysis because Analysis-00.toc is non existent
-6397 INFO: Looking for Python shared library...
-6397 INFO: Using Python shared library: C:\Program Files\Python314\python314.dll
-6397 INFO: Running Analysis Analysis-00.toc
-6397 INFO: Target bytecode optimization level: 0
-6397 INFO: Initializing module dependency graph...
-6398 INFO: Initializing module graph hook caches...
-6576 INFO: Analyzing modules for base_library.zip ...
-9093 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-9855 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-10844 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-10880 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-19375 INFO: Caching module dependency graph...
-19427 INFO: Analyzing F:\projects\proofreader\main.py
-19512 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
-19514 INFO: TclTkInfo: initializing cached Tcl/Tk info...
-19952 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-20117 INFO: Processing standard module hook 'hook-customtkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-20261 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-20321 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-20491 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-20493 INFO: SetuptoolsInfo: initializing cached setuptools info...
-24489 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-25076 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-25344 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-28219 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-28418 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-29011 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-29527 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-31552 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-32190 INFO: Processing standard module hook 'hook-google.api_core.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-34153 INFO: Processing standard module hook 'hook-grpc.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-35835 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-38534 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-39009 INFO: Processing standard module hook 'hook-cryptography.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-40248 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
-41803 INFO: Processing standard module hook 'hook-bcrypt.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-41944 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-45271 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-47129 INFO: Processing standard module hook 'hook-pycparser.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-48124 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-57569 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+6709 INFO: Appending 'datas' from .spec
+6710 INFO: checking Analysis
+6710 INFO: Building Analysis because Analysis-00.toc is non existent
+6710 INFO: Looking for Python shared library...
+6711 INFO: Using Python shared library: C:\Program Files\Python314\python314.dll
+6711 INFO: Running Analysis Analysis-00.toc
+6711 INFO: Target bytecode optimization level: 0
+6711 INFO: Initializing module dependency graph...
+6713 INFO: Initializing module graph hook caches...
+6845 INFO: Analyzing modules for base_library.zip ...
+10525 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+11739 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+12677 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+12704 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+18464 INFO: Caching module dependency graph...
+18533 INFO: Analyzing F:\projects\proofreader\main.py
+18660 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+18663 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+19438 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+19558 INFO: Processing standard module hook 'hook-customtkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19733 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+19794 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+19895 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19899 INFO: SetuptoolsInfo: initializing cached setuptools info...
+28010 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+28674 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+28875 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+30536 INFO: Processing standard module hook 'hook-PIL.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+30784 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+31758 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+32387 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+34138 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+35000 INFO: Processing standard module hook 'hook-google.api_core.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+36219 INFO: Processing standard module hook 'hook-grpc.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+37166 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+39425 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+39757 INFO: Processing standard module hook 'hook-cryptography.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+42275 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+43132 INFO: Processing standard module hook 'hook-bcrypt.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+43250 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+45501 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+46720 INFO: Processing standard module hook 'hook-pycparser.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+48311 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+52868 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
 C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\PyInstaller\utils\hooks\__init__.py:665: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
   __import__(name)
-60196 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-65752 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-68669 INFO: Processing standard module hook 'hook-httplib2.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-69282 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-71259 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-71688 INFO: Processing standard module hook 'hook-googleapiclient.model.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-73331 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-73354 INFO: Processing standard module hook 'hook-importlib_resources.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-73527 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-74061 INFO: Analyzing hidden import 'google.generativeai.answer'
-74183 INFO: Analyzing hidden import 'google.generativeai.audio_models'
-74183 INFO: Analyzing hidden import 'google.generativeai.audio_models._audio_models'
-74205 INFO: Analyzing hidden import 'google.generativeai.notebook'
-77930 INFO: Analyzing hidden import 'google.generativeai.notebook.post_process_utils_test_helper'
-77954 INFO: Analyzing hidden import 'google.generativeai.permission'
-77988 INFO: Analyzing hidden import 'google.generativeai.retriever'
-78020 INFO: Analyzing hidden import 'google.generativeai.types.answer_types'
-78043 INFO: Analyzing hidden import 'google.generativeai.types.palm_safety_types'
-78075 INFO: Processing module hooks (post-graph stage)...
-78439 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
-78440 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
-78831 WARNING: Hidden import "importlib_resources.trees" not found!
-79934 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-90967 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
-90970 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
-91490 INFO: Performing binary vs. data reclassification (2134 entries)
-133173 INFO: Looking for ctypes DLLs
-133226 WARNING: Ignoring AppKit.framework/AppKit imported from C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\darkdetect\_mac_detect.py - only basenames are supported with ctypes imports!
-133329 INFO: Analyzing run-time hooks ...
-133355 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
-133397 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
-133429 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
-133466 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
-133481 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
-133667 INFO: Creating base_library.zip...
-133759 INFO: Looking for dynamic libraries
+55429 INFO: Processing standard module hook 'hook-pygments.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+61965 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+65825 INFO: Processing standard module hook 'hook-httplib2.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+66917 INFO: Processing standard module hook 'hook-jinja2.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+69100 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+69541 INFO: Processing standard module hook 'hook-googleapiclient.model.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+71487 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+71508 INFO: Processing standard module hook 'hook-importlib_resources.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+71620 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+72246 INFO: Processing standard module hook 'hook-sounddevice.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+72286 INFO: Analyzing hidden import 'google.generativeai.answer'
+72475 INFO: Analyzing hidden import 'google.generativeai.audio_models'
+72477 INFO: Analyzing hidden import 'google.generativeai.audio_models._audio_models'
+72480 INFO: Analyzing hidden import 'google.generativeai.notebook'
+75174 INFO: Analyzing hidden import 'google.generativeai.notebook.post_process_utils_test_helper'
+75179 INFO: Analyzing hidden import 'google.generativeai.permission'
+75197 INFO: Analyzing hidden import 'google.generativeai.retriever'
+75221 INFO: Analyzing hidden import 'google.generativeai.types.answer_types'
+75229 INFO: Analyzing hidden import 'google.generativeai.types.palm_safety_types'
+75260 INFO: Processing module hooks (post-graph stage)...
+75764 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+75766 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+76243 WARNING: Hidden import "importlib_resources.trees" not found!
+77237 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+85640 INFO: Processing standard module hook 'hook-_tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks'
+85645 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+86786 INFO: Performing binary vs. data reclassification (2137 entries)
+88667 INFO: Looking for ctypes DLLs
+88714 WARNING: Ignoring AppKit.framework/AppKit imported from C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\darkdetect\_mac_detect.py - only basenames are supported with ctypes imports!
+88812 INFO: Analyzing run-time hooks ...
+88827 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
+88853 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+88857 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
+88865 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
+88874 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'C:\\Users\\Hp\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\hooks\\rthooks'
+89074 INFO: Creating base_library.zip...
+89146 INFO: Looking for dynamic libraries
 C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\PyInstaller\building\build_main.py:227: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
   __import__(package)
-137960 INFO: Extra DLL search directories (AddDllDirectory): []
-137961 INFO: Extra DLL search directories (PATH): []
-140057 INFO: Warnings written to F:\projects\proofreader\build\build\warn-build.txt
-140503 INFO: Graph cross-reference written to F:\projects\proofreader\build\build\xref-build.html
-140832 INFO: checking PYZ
-140833 INFO: Building PYZ because PYZ-00.toc is non existent
-140833 INFO: Building PYZ (ZlibArchive) F:\projects\proofreader\build\build\PYZ-00.pyz
-143673 INFO: Building PYZ (ZlibArchive) F:\projects\proofreader\build\build\PYZ-00.pyz completed successfully.
-143947 INFO: checking PKG
-143948 INFO: Building PKG because PKG-00.toc is non existent
-143949 INFO: Building PKG (CArchive) SinhalaProofreader.pkg
-158403 INFO: Building PKG (CArchive) SinhalaProofreader.pkg completed successfully.
-158437 INFO: Bootloader C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
-158437 INFO: checking EXE
-158437 INFO: Building EXE because EXE-00.toc is non existent
-158437 INFO: Building EXE from EXE-00.toc
-158438 INFO: Copying bootloader EXE to F:\projects\proofreader\dist\SinhalaProofreader.exe
-158648 INFO: Copying icon to EXE
-158771 INFO: Copying 0 resources to EXE
-158771 INFO: Embedding manifest in EXE
-158845 INFO: Appending PKG archive to EXE
-159100 INFO: Fixing EXE headers
-159950 INFO: Building EXE from EXE-00.toc completed successfully.
-159981 INFO: Build complete! The results are available in: F:\projects\proofreader\dist
+93225 INFO: Extra DLL search directories (AddDllDirectory): []
+93226 INFO: Extra DLL search directories (PATH): []
+94693 INFO: Warnings written to F:\projects\proofreader\build\build\warn-build.txt
+95098 INFO: Graph cross-reference written to F:\projects\proofreader\build\build\xref-build.html
+95364 INFO: checking PYZ
+95364 INFO: Building PYZ because PYZ-00.toc is non existent
+95365 INFO: Building PYZ (ZlibArchive) F:\projects\proofreader\build\build\PYZ-00.pyz
+97994 INFO: Building PYZ (ZlibArchive) F:\projects\proofreader\build\build\PYZ-00.pyz completed successfully.
+98183 INFO: checking PKG
+98183 INFO: Building PKG because PKG-00.toc is non existent
+98183 INFO: Building PKG (CArchive) SinhalaProofreader.pkg
+116034 INFO: Building PKG (CArchive) SinhalaProofreader.pkg completed successfully.
+116073 INFO: Bootloader C:\Users\Hp\AppData\Roaming\Python\Python314\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+116073 INFO: checking EXE
+116073 INFO: Building EXE because EXE-00.toc is non existent
+116073 INFO: Building EXE from EXE-00.toc
+116081 INFO: Copying bootloader EXE to F:\projects\proofreader\dist\SinhalaProofreader.exe
+116170 INFO: Copying icon to EXE
+116223 INFO: Copying 0 resources to EXE
+116223 INFO: Embedding manifest in EXE
+116264 INFO: Appending PKG archive to EXE
+116416 INFO: Fixing EXE headers
+117020 INFO: Building EXE from EXE-00.toc completed successfully.
+117071 INFO: Build complete! The results are available in: F:\projects\proofreader\dist
