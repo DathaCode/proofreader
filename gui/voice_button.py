@@ -2,21 +2,15 @@
 """
 voice_button.py — a floating circular mic button with a pulsing glow ring.
 
-Three visual states:
-  * idle       — subtle circular mic button
-  * recording  — animated concentric glow rings (breathing) + red tint
-  * busy       — ⏳ while the audio is being transcribed
-
-The glow is drawn on a tk.Canvas whose background matches the text box behind it,
-so the rings blend softly instead of showing a square patch.
+Everything is drawn on a single tk.Canvas (face circle + vector mic icon + glow),
+and the click is a plain canvas <Button-1> binding — which fires reliably (unlike
+a CTk button embedded via create_window). States: idle / recording / busy.
 """
 
 import math
 import tkinter as tk
 
 import customtkinter as ctk
-
-from .widgets import font, sinhala_family  # noqa: F401  (font used for glyph)
 
 
 def _rgb(widget, color):
@@ -33,38 +27,29 @@ def _blend(a, b, t):
 
 
 class VoiceButton(ctk.CTkFrame):
-    def __init__(self, master, command, size=92, glow="#ff4d4d",
-                 idle_fg=("#e7ecf5", "#2b3446"), idle_hover=("#dbe3f1", "#354056"),
-                 rec_fg="#ef4444", rec_hover="#dc2626", **kw):
+    def __init__(self, master, command, size=80, glow="#ff4d4d", **kw):
         super().__init__(master, fg_color="transparent", width=size, height=size, **kw)
         self.command = command
         self.size = size
         self.glow = glow
-        self.idle_fg = idle_fg
-        self.idle_hover = idle_hover
-        self.rec_fg = rec_fg
-        self.rec_hover = rec_hover
-        self._mode = "idle"
+        self._mode = "idle"      # idle | recording | busy
+        self._hover = False
         self._anim = None
         self._phase = 0.0
 
         self._bg = self._textbox_bg()
         self.canvas = tk.Canvas(self, width=size, height=size, bg=self._bg,
-                                highlightthickness=0, bd=0)
+                                highlightthickness=0, bd=0, cursor="hand2")
         self.canvas.pack()
+        self.canvas.bind("<Button-1>", self._on_click)
+        self.canvas.bind("<Enter>", self._on_enter)
+        self.canvas.bind("<Leave>", self._on_leave)
 
-        d = 54
-        self.btn = ctk.CTkButton(
-            self.canvas, text="🎤", width=d, height=d, corner_radius=d // 2,
-            fg_color=idle_fg, hover_color=idle_hover, bg_color=self._bg,
-            text_color=("#1f2733", "#e8edf4"), font=(sinhala_family(), 20),
-            command=self._clicked,
-        )
-        self._win = self.canvas.create_window(size // 2, size // 2, window=self.btn)
         self._bg_rgb = _rgb(self.canvas, self._bg)
         self._glow_rgb = _rgb(self.canvas, self.glow)
+        self._render()
 
-    # ----- appearance ----------------------------------------------------
+    # ----- theme ---------------------------------------------------------
     @staticmethod
     def _textbox_bg():
         try:
@@ -74,40 +59,41 @@ class VoiceButton(ctk.CTkFrame):
             return "#1a1f28" if ctk.get_appearance_mode() == "Dark" else "#ffffff"
 
     def refresh_theme(self):
-        """Re-blend to the current theme's text-box background."""
         self._bg = self._textbox_bg()
         self._bg_rgb = _rgb(self.canvas, self._bg)
         self._glow_rgb = _rgb(self.canvas, self.glow)
         self.canvas.configure(bg=self._bg)
-        try:
-            self.btn.configure(bg_color=self._bg)
-        except Exception:
-            pass
+        self._render()
 
-    def _clicked(self):
+    # ----- events --------------------------------------------------------
+    def _on_click(self, _e=None):
         if self._mode != "busy" and self.command:
             self.command()
 
+    def _on_enter(self, _e=None):
+        self._hover = True
+        self._render()
+
+    def _on_leave(self, _e=None):
+        self._hover = False
+        self._render()
+
     # ----- states --------------------------------------------------------
     def set_recording(self, on):
+        self._mode = "recording" if on else "idle"
         if on:
-            self._mode = "recording"
-            self.btn.configure(text="🎤", fg_color=self.rec_fg, hover_color=self.rec_hover,
-                               text_color="white", state="normal")
             self._start_anim()
         else:
-            self._mode = "idle"
             self._stop_anim()
-            self.btn.configure(text="🎤", fg_color=self.idle_fg, hover_color=self.idle_hover,
-                               text_color=("#1f2733", "#e8edf4"), state="normal")
+        self._render()
 
     def set_busy(self, on):
         if on:
             self._mode = "busy"
             self._stop_anim()
-            self.btn.configure(text="⏳", state="disabled")
         else:
-            self.set_recording(False)
+            self._mode = "idle"
+        self._render()
 
     # ----- glow animation ------------------------------------------------
     def _start_anim(self):
@@ -122,27 +108,66 @@ class VoiceButton(ctk.CTkFrame):
             except Exception:
                 pass
             self._anim = None
-        self.canvas.delete("glow")
 
     def _pulse(self):
         if self._mode != "recording":
             self._anim = None
             return
-        self.canvas.delete("glow")
-        c = self.size / 2
-        base = 30
-        rings = 3
-        for i in range(rings):
-            ph = self._phase + i * (2 * math.pi / rings)
-            s = (math.sin(ph) + 1) / 2                     # 0..1 breathing
-            r = base + 4 + s * 16 + i * 3
-            intensity = max(0.0, 0.6 * (1 - s))            # fade as it expands
-            col = _hex(_blend(self._bg_rgb, self._glow_rgb, intensity))
-            self.canvas.create_oval(c - r, c - r, c + r, c + r,
-                                    outline=col, width=3, tags="glow")
-        self.canvas.tag_lower("glow", self._win)           # keep rings behind the button
         self._phase = (self._phase + 0.14) % (2 * math.pi)
+        self._render()
         self._anim = self.after(55, self._pulse)
+
+    # ----- drawing -------------------------------------------------------
+    def _face_colors(self):
+        """(circle fill, mic stroke) for the current mode + hover."""
+        dark = ctk.get_appearance_mode() == "Dark"
+        if self._mode == "recording":
+            return ("#ef4444" if not self._hover else "#f05252"), "#ffffff"
+        if self._mode == "busy":
+            return ("#39445a" if dark else "#d7deea"), ("#9aa6b6" if dark else "#8a94a6")
+        # idle
+        if dark:
+            fill = "#333f54" if self._hover else "#2b3446"
+            return fill, "#e8edf4"
+        fill = "#dbe3f1" if self._hover else "#e7ecf5"
+        return fill, "#1f2733"
+
+    def _render(self):
+        cv = self.canvas
+        cv.delete("all")
+        c = self.size / 2
+
+        if self._mode == "recording":
+            for i in range(3):
+                ph = self._phase + i * (2 * math.pi / 3)
+                s = (math.sin(ph) + 1) / 2
+                r = 20 + 3 + s * 10 + i * 2
+                intensity = max(0.0, 0.6 * (1 - s))
+                col = _hex(_blend(self._bg_rgb, self._glow_rgb, intensity))
+                cv.create_oval(c - r, c - r, c + r, c + r, outline=col, width=2)
+
+        fill, stroke = self._face_colors()
+        rad = 20
+        cv.create_oval(c - rad, c - rad, c + rad, c + rad, fill=fill, outline=fill)
+        self._draw_mic(c, c, stroke)
+
+    def _draw_mic(self, cx, cy, color):
+        """Small vector mic icon (capsule body + cradle + stand)."""
+        w = 2
+        bw, top, bot = 5, cy - 12, cy - 1          # capsule body
+        self.canvas.create_arc(cx - bw, top - bw, cx + bw, top + bw,
+                               start=0, extent=180, style="arc", outline=color, width=w)
+        self.canvas.create_arc(cx - bw, bot - bw, cx + bw, bot + bw,
+                               start=180, extent=180, style="arc", outline=color, width=w)
+        self.canvas.create_line(cx - bw, top, cx - bw, bot, fill=color, width=w)
+        self.canvas.create_line(cx + bw, top, cx + bw, bot, fill=color, width=w)
+        # cradle (U hugging the mic bottom)
+        self.canvas.create_arc(cx - 9, cy - 8, cx + 9, cy + 10,
+                               start=200, extent=140, style="arc", outline=color, width=w)
+        # stand + base
+        self.canvas.create_line(cx, cy + 10, cx, cy + 15, fill=color, width=w)
+        self.canvas.create_line(cx - 6, cy + 16, cx + 6, cy + 16, fill=color, width=w,
+                               capstyle="round")
 
     def destroy(self):
         self._stop_anim()

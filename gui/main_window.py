@@ -374,25 +374,25 @@ class MainWindow(ctk.CTk):
             self._stop_recording()
 
     def _start_recording(self):
-        if self._recorder is None:
-            try:
-                from engine.audio_recorder import MicRecorder
-                self._recorder = MicRecorder()
-            except Exception:
-                self._set_status(self._t("mic_unavailable"))
-                return
-        if not self._recorder.available:
-            self._set_status(self._t("mic_unavailable"))
-            return
-        try:
-            self._recorder.start()
-        except Exception as exc:
-            self._set_status(self._t("mic_failed", str(exc)[:70]))
-            return
+        # Immediate, unmistakable acknowledgement that the click registered —
+        # glow + pill + status show at once, BEFORE we touch the mic device.
         self._recording = True
         self.voice_btn.set_recording(True)
         self._show_recording(True)
         self._set_status(self._t("mic_recording"))
+        self.update_idletasks()
+        try:
+            from engine.audio_recorder import MicRecorder
+            if self._recorder is None:
+                self._recorder = MicRecorder()
+            if not self._recorder.available:
+                raise RuntimeError(self._t("mic_unavailable"))
+            self._recorder.start()
+        except Exception as exc:
+            self._reset_mic()
+            self._set_status(self._t("mic_failed", str(exc)[:90]))
+            messagebox.showerror("🎤 Voice / හඬ ටයිප්",
+                                 self._t("mic_failed", str(exc)[:200]))
 
     def _stop_recording(self):
         self._recording = False
@@ -419,7 +419,7 @@ class MainWindow(ctk.CTk):
         if show:
             self.recording_label.configure(text=self._t("mic_recording_pill"))
             self.recording_label.place(in_=self.input_box, relx=1.0, rely=1.0,
-                                       anchor="se", x=-6, y=-102)
+                                       anchor="se", x=-6, y=-88)
             self.recording_label.lift()
         else:
             self.recording_label.place_forget()
@@ -442,7 +442,8 @@ class MainWindow(ctk.CTk):
         self._reset_mic()
         if err is not None:
             msg = getattr(err, "message_en", None) or str(err)
-            self._set_status(self._t("mic_failed", msg[:70]))
+            self._set_status(self._t("mic_failed", msg[:90]))
+            messagebox.showerror("🎤 Voice / හඬ ටයිප්", self._t("mic_failed", msg[:200]))
             return
         text = (text or "").strip()
         if not text:

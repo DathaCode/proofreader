@@ -298,12 +298,11 @@ def admin_config():
             st.cfg.set("confidence_threshold", float(f.get("confidence_threshold")))
         except (TypeError, ValueError):
             pass
-    # Password changes (optional).
-    for who in ("user", "admin"):
-        pw = (f.get("%s_password" % who) or "").strip()
-        if pw:
-            uname = "sinhala" if who == "user" else "admin"
-            st.cfg.set_password(uname, pw)
+    # Admin password change (optional). The built-in 'sinhala' user password is
+    # not managed here — create/manage users directly in web_config.json.
+    admin_pw = (f.get("admin_password") or "").strip()
+    if admin_pw:
+        st.cfg.set_password("admin", admin_pw)
     st.cfg.save()
     st.engine.reload_model()
     return jsonify({"ok": True, "model": st.cfg.get("model")})
