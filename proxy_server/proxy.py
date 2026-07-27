@@ -166,6 +166,13 @@ class ProxyState:
             "stats": _stats(text, all_errors, len(pre_fixed)),
         }
 
+    # ----- transcription (voice typing) ---------------------------------
+    def transcribe(self, audio_bytes, mime="audio/wav"):
+        if self.client is None:
+            raise RuntimeError(self.model_error or "Gemini model not ready")
+        with self.sem:
+            return self.client.transcribe_audio(audio_bytes, mime=mime)
+
 
 # ----- helpers -----------------------------------------------------------
 def _pick_best_model(models):
@@ -266,6 +273,27 @@ def proofread():
             "summary_si": "Proxy දෝෂයකි", "summary_en": "Proxy error: %s" % str(e)[:160],
             "pre_fixed_count": 0, "stats": _stats(text, [])
         }), 500
+
+
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    """Voice typing: client POSTs base64 audio, Gemini transcribes to Sinhala."""
+    import base64
+    t0 = time.time()
+    payload = request.get_json(silent=True) or {}
+    audio_b64 = payload.get("audio", "")
+    mime = payload.get("mime", "audio/wav")
+    client_ip = request.remote_addr or "?"
+    if not audio_b64:
+        return jsonify({"text": "", "error": "no audio"}), 400
+    try:
+        audio = base64.b64decode(audio_b64)
+        text = STATE.transcribe(audio, mime=mime)
+        latency = int((time.time() - t0) * 1000)
+        STATE.logger.log(client_ip, len(text.split()), 0, 0, latency, "voice")
+        return jsonify({"text": text})
+    except Exception as e:
+        return jsonify({"text": "", "error": str(e)[:200]}), 500
 
 
 @app.route("/corrections")

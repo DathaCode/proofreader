@@ -136,6 +136,33 @@ class LanProxyProofreader:
             "stats": stats,
         }
 
+    def transcribe(self, audio_path, on_progress=None):
+        """Voice typing: send a WAV file to the proxy, get back Sinhala text."""
+        import base64
+        if on_progress:
+            on_progress("Control PC හඬ පෙළට හරවමින්...")
+        with open(audio_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+        try:
+            r = req_lib.post(self.proxy_url + "/transcribe",
+                             json={"audio": b64, "mime": "audio/wav"}, timeout=90)
+        except req_lib.exceptions.ConnectionError:
+            raise GeminiError("Control PC proxy සම්බන්ධ නොවේ.",
+                              "Cannot reach the Control PC proxy", kind="network")
+        except req_lib.exceptions.Timeout:
+            raise GeminiError("හඬ පෙළට හැරවීම ප්‍රමාද විය.",
+                              "Voice transcription timed out", kind="timeout")
+        if r.status_code != 200:
+            detail = ""
+            try:
+                detail = r.json().get("error", "")
+            except Exception:
+                pass
+            raise GeminiError("හඬ පෙළට හැරවීම අසාර්ථකයි",
+                              "Transcription failed: %s" % (detail or ("HTTP %d" % r.status_code)),
+                              kind="error")
+        return (r.json().get("text", "") or "").strip()
+
     def send_corrections(self, corrections):
         """Send human corrections to the proxy for central storage."""
         try:

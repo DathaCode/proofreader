@@ -20,10 +20,21 @@ proxy needs:
     * test()             -> (ok: bool, message: str)
 """
 
+import base64
+
 import requests
 
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_TIMEOUT = 60
+
+# Shared instruction for speech -> Sinhala text (voice typing).
+TRANSCRIBE_PROMPT = (
+    "You transcribe spoken audio into text. The speaker is dictating in Sinhala "
+    "and may include some English words. Output ONLY the exact transcription as "
+    "Sinhala Unicode text, keeping any English words in English. Do not add "
+    "quotes, labels, translations, or any explanation. If there is no clear "
+    "speech, output nothing."
+)
 
 # Friendly ordering hint: flash/lite first (cheap, free-tier), then the rest.
 _PREFERRED = ("flash", "lite", "pro")
@@ -87,6 +98,31 @@ class GeminiRest:
         if r.status_code != 200:
             raise _http_error(r)
         return _extract_text(r.json())
+
+    # ----- transcription (voice typing) ---------------------------------
+    def transcribe_audio(self, audio_bytes, mime="audio/wav"):
+        """Send inline audio to <model>:generateContent and return the text."""
+        if not self.api_key:
+            raise GeminiRestError("No API key set")
+        url = "%s/models/%s:generateContent?key=%s" % (API_ROOT, self.model, self.api_key)
+        b64 = base64.b64encode(audio_bytes).decode("ascii")
+        body = {
+            "contents": [{"parts": [
+                {"text": TRANSCRIBE_PROMPT},
+                {"inline_data": {"mime_type": mime, "data": b64}},
+            ]}],
+            "generationConfig": {"temperature": 0.0},
+        }
+        try:
+            r = requests.post(url, json=body, timeout=self.timeout)
+        except requests.exceptions.RequestException as e:
+            raise GeminiRestError("Network error: %s" % e, detail=str(e))
+        if r.status_code != 200:
+            raise _http_error(r)
+        try:
+            return _extract_text(r.json()).strip()
+        except GeminiRestError:
+            return ""  # no speech / empty -> empty string, not an error
 
     # ----- diagnostics ---------------------------------------------------
     def test(self):

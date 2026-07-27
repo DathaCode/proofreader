@@ -22,6 +22,7 @@ from engine.proofreader import SinhalaProofreader
 from .widgets import font, sinhala_family, StatusIndicator, ErrorRow
 from .settings_dialog import SettingsDialog
 from .welcome_dialog import WelcomeDialog
+from .voice_button import VoiceButton
 from .i18n import t
 from . import theme as TH
 
@@ -51,6 +52,8 @@ class MainWindow(ctk.CTk):
         self._tr = []                 # [(widget, key)] for live language switching
         self.corrected_window = None  # separate Toplevel
         self.corrected_box = None
+        self._recorder = None         # lazy MicRecorder for voice typing
+        self._recording = False
 
         ctk.set_appearance_mode(config.get("theme", "dark"))
         ctk.set_default_color_theme("blue")
@@ -172,6 +175,16 @@ class MainWindow(ctk.CTk):
                                         border_color=TH.BORDER)
         self.input_box.grid(row=1, column=0, sticky="nsew", padx=16, pady=4)
         self.input_box.bind("<KeyRelease>", self._update_counts)
+
+        # Floating voice button at the bottom-right of the input box + a
+        # "🔴 Recording…" indicator that shows just above it while recording.
+        self.voice_btn = VoiceButton(left, command=self.on_mic)
+        self.voice_btn.place(in_=self.input_box, relx=1.0, rely=1.0, anchor="se", x=-4, y=-4)
+        self.voice_btn.lift()
+        self.recording_label = ctk.CTkLabel(
+            left, text="", font=font(12, True), text_color="#ef4444",
+            fg_color=TH.CARD_BG, corner_radius=8, padx=8,
+        )
 
         self.count_label = ctk.CTkLabel(left, text="Words: 0 | Chars: 0", anchor="w",
                                         font=font(12), text_color=TH.MUTED)
@@ -334,6 +347,8 @@ class MainWindow(ctk.CTk):
         self.result_text.tag_configure("grammar_error", background=TH.GRAMMAR_BG,
                                        foreground="white", font=(sinhala_family(), 16))
         self.result_text.tag_configure("sel", background=c["sel"])
+        if getattr(self, "voice_btn", None) is not None:
+            self.voice_btn.refresh_theme()
 
     def _update_counts(self, _e=None):
         text = self.input_box.get("1.0", "end-1c")
@@ -350,6 +365,95 @@ class MainWindow(ctk.CTk):
                 self.conn_status.set_status(True, self._t("key_ready"))
             else:
                 self.conn_status.set_status(False, self._t("key_missing"))
+
+    # ----- voice typing --------------------------------------------------
+    def on_mic(self):
+        if not self._recording:
+            self._start_recording()
+        else:
+            self._stop_recording()
+
+    def _start_recording(self):
+        if self._recorder is None:
+            try:
+                from engine.audio_recorder import MicRecorder
+                self._recorder = MicRecorder()
+            except Exception:
+                self._set_status(self._t("mic_unavailable"))
+                return
+        if not self._recorder.available:
+            self._set_status(self._t("mic_unavailable"))
+            return
+        try:
+            self._recorder.start()
+        except Exception as exc:
+            self._set_status(self._t("mic_failed", str(exc)[:70]))
+            return
+        self._recording = True
+        self.voice_btn.set_recording(True)
+        self._show_recording(True)
+        self._set_status(self._t("mic_recording"))
+
+    def _stop_recording(self):
+        self._recording = False
+        self._show_recording(False)
+        self.voice_btn.set_busy(True)
+        try:
+            path = self._recorder.stop()
+        except Exception as exc:
+            self._reset_mic()
+            self._set_status(self._t("mic_failed", str(exc)[:70]))
+            return
+        if not path:
+            self._reset_mic()
+            return
+        self._set_status(self._t("mic_converting"))
+        threading.Thread(target=self._transcribe_worker, args=(path,), daemon=True).start()
+
+    def _reset_mic(self):
+        self._recording = False
+        self._show_recording(False)
+        self.voice_btn.set_recording(False)  # clears busy/recording -> idle
+
+    def _show_recording(self, show):
+        if show:
+            self.recording_label.configure(text=self._t("mic_recording_pill"))
+            self.recording_label.place(in_=self.input_box, relx=1.0, rely=1.0,
+                                       anchor="se", x=-6, y=-102)
+            self.recording_label.lift()
+        else:
+            self.recording_label.place_forget()
+
+    def _transcribe_worker(self, path):
+        text, err = None, None
+        try:
+            text = self.proofreader.transcribe(
+                path, on_progress=lambda m: self.after(0, lambda: self._set_status("⏱️ " + m)))
+        except Exception as exc:  # GeminiError or any failure
+            err = exc
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        self.after(0, lambda: self._transcribe_done(text, err))
+
+    def _transcribe_done(self, text, err):
+        self._reset_mic()
+        if err is not None:
+            msg = getattr(err, "message_en", None) or str(err)
+            self._set_status(self._t("mic_failed", msg[:70]))
+            return
+        text = (text or "").strip()
+        if not text:
+            self._set_status(self._t("mic_empty"))
+            return
+        current = self.input_box.get("1.0", "end-1c")
+        prefix = "" if (not current or current.endswith((" ", "\n"))) else " "
+        self.input_box.insert("insert", prefix + text + " ")
+        self.input_box.focus_set()
+        self._update_counts()
+        self._set_status(self._t("mic_inserted"))
 
     # ----- check ---------------------------------------------------------
     def on_check(self):
@@ -722,6 +826,11 @@ class MainWindow(ctk.CTk):
         for widget, key in self._tr:
             try:
                 widget.configure(text=self._t(key))
+            except Exception:
+                pass
+        if self._recording:  # relabel the live recording pill
+            try:
+                self.recording_label.configure(text=self._t("mic_recording_pill"))
             except Exception:
                 pass
         if self.corrected_window is not None and self.corrected_window.winfo_exists():

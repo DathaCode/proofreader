@@ -27,9 +27,10 @@ if not defined NSSM (
     pause & exit /b 1
 )
 
-rem --- Find python.exe ---
+rem --- Find the Python launcher / exe (prefer py.exe, like START_PROXY.bat) ---
 set "PY="
-for /f "delims=" %%p in ('where python 2^>nul') do if not defined PY set "PY=%%p"
+for /f "delims=" %%p in ('where py 2^>nul') do if not defined PY set "PY=%%p"
+if not defined PY for /f "delims=" %%p in ('where python 2^>nul') do if not defined PY set "PY=%%p"
 if not defined PY (
     echo Python not found on PATH. Install Python 3.9+ first.
     pause & exit /b 1

@@ -7,6 +7,6 @@ Set sh  = CreateObject("WScript.Shell")
 here = fso.GetParentFolderName(WScript.ScriptFullName)
 sh.CurrentDirectory = here
 If Not fso.FolderExists(here & "\data") Then fso.CreateFolder(here & "\data")
-cmd = "cmd /c python proxy.py >> """ & here & "\data\server.log"" 2>&1"
+cmd = "cmd /c py proxy.py >> """ & here & "\data\server.log"" 2>&1"
 ' 0 = hidden window, False = do not wait
 sh.Run cmd, 0, False

@@ -264,6 +264,15 @@ class GeminiError(Exception):
         self.detail = detail  # raw underlying error text, for diagnostics
 
 
+TRANSCRIBE_PROMPT = (
+    "You transcribe spoken audio into text. The speaker is dictating in Sinhala "
+    "and may include some English words. Output ONLY the exact transcription as "
+    "Sinhala Unicode text, keeping any English words in English. Do not add "
+    "quotes, labels, translations, or any explanation. If there is no clear "
+    "speech, output nothing."
+)
+
+
 class GeminiProofreader:
     def __init__(self, api_key, model="gemini-2.5-flash", transport="rest"):
         if not _HAVE_GENAI:
@@ -401,6 +410,20 @@ class GeminiProofreader:
             "stats": stats,
             "warning": data.get("warning", ""),
         }
+
+    def transcribe(self, audio_path, on_progress=None):
+        """Voice typing: transcribe a WAV file to Sinhala text via Gemini."""
+        if on_progress:
+            on_progress("හඬ පෙළට හරවමින්...")
+        with open(audio_path, "rb") as f:
+            audio = f.read()
+        try:
+            resp = self.model.generate_content(
+                [TRANSCRIBE_PROMPT, {"mime_type": "audio/wav", "data": audio}]
+            )
+        except Exception as exc:
+            raise self._classify(exc)
+        return (getattr(resp, "text", "") or "").strip()
 
     def test_connection(self):
         """Run a real proofread on a known-error sentence and report the count."""

@@ -95,6 +95,20 @@ class SinhalaProofreader:
                 kind="error",
             )
 
+    def transcribe(self, audio_path, on_progress=None):
+        """Voice typing: WAV file -> Sinhala text (Gemini direct, or via proxy).
+
+        Raises GeminiError on failure (the GUI catches and shows a message).
+        """
+        self._refresh_engine()
+        if self.mode == "direct" and not self.config.has_api_key():
+            raise GeminiError(
+                "Gemini API Key එකක් අවශ්‍යයි. Settings → API Key එකතු කරන්න.",
+                "A Gemini API key is required. Open Settings → API Key.",
+                kind="no_key",
+            )
+        return self.engine.transcribe(audio_path, on_progress=on_progress)
+
     def test_connection(self):
         self._refresh_engine()
         try:
