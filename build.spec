@@ -30,7 +30,8 @@ datas += collect_data_files("customtkinter")
 # google-generativeai pulls in grpc / google.* packages — collect them fully so
 # the API works inside the frozen .exe.
 hiddenimports = ["customtkinter", "requests",
-                 "engine.corrections_db", "engine.lan_proxy_engine"]
+                 "engine.corrections_db", "engine.lan_proxy_engine",
+                 "engine.audio_recorder", "gui.voice_button"]
 hiddenimports += collect_submodules("google.generativeai")
 hiddenimports += collect_submodules("google.ai.generativelanguage")
 

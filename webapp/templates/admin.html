@@ -89,8 +89,6 @@
           <input type="number" id="cfgRate" value="{{ cfg.rate_limit_per_min }}"></div>
       </div>
       <div class="form-row">
-        <div class="field"><label>New user password (sinhala)</label>
-          <input type="password" id="cfgUserPw" placeholder="leave blank to keep"></div>
         <div class="field"><label>New admin password (admin)</label>
           <input type="password" id="cfgAdminPw" placeholder="leave blank to keep"></div>
         <button class="btn primary" onclick="saveConfig()">💾 Save settings</button>
@@ -253,9 +251,9 @@
         precheck_threshold:$("cfgPrecheck").value,inject_top_n:$("cfgInject").value,
         max_concurrent:$("cfgConcurrent").value,request_timeout:$("cfgTimeout").value,
         rate_limit_per_min:$("cfgRate").value,
-        user_password:$("cfgUserPw").value,admin_password:$("cfgAdminPw").value};
+        admin_password:$("cfgAdminPw").value};
       const r=await jpost("/api/admin/config",body);
-      if(r.ok){toast("Settings saved","ok");$("curModel").textContent=r.model;$("cfgUserPw").value="";$("cfgAdminPw").value="";}
+      if(r.ok){toast("Settings saved","ok");$("curModel").textContent=r.model;$("cfgAdminPw").value="";}
       else toast("Save failed","err");};
 
     // init model count label; auto-load models if a key is set but none loaded yet.

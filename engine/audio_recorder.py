@@ -65,13 +65,23 @@ class MicRecorder:
         err, _ = self._send("open new type waveaudio alias %s" % self._alias)
         if err:
             raise RecorderError("Cannot open the microphone: " + self._error_text(err))
-        # Mono, 16-bit, 16 kHz — small and speech-friendly.
-        self._send("set %s time format ms bitspersample 16 channels 1 samplespersec 16000"
-                   % self._alias)
+        self._send("set %s time format ms" % self._alias)
+        # Try speech-friendly formats in order; each is best-effort. If a device
+        # rejects them all we still record at its DEFAULT format (a valid WAV).
+        for fmt in ("bitspersample 16 channels 1 samplespersec 16000",
+                    "bitspersample 16 channels 1 samplespersec 44100",
+                    "bitspersample 16 channels 2 samplespersec 44100"):
+            e2, _ = self._send("set %s %s" % (self._alias, fmt))
+            if not e2:
+                break
         err, _ = self._send("record %s" % self._alias)
         if err:
+            msg = self._error_text(err)
             self._send("close %s" % self._alias)
-            raise RecorderError("Cannot start recording: " + self._error_text(err))
+            raise RecorderError(
+                "Cannot start recording: " + msg +
+                "  (Set your microphone as the default recording device in "
+                "Windows Sound settings, then try again.)")
         self._recording = True
 
     def stop(self):
