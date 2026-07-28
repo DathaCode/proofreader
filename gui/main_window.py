@@ -391,8 +391,7 @@ class MainWindow(ctk.CTk):
         except Exception as exc:
             self._reset_mic()
             self._set_status(self._t("mic_failed", str(exc)[:90]))
-            messagebox.showerror("🎤 Voice / හඬ ටයිප්",
-                                 self._t("mic_failed", str(exc)[:200]))
+            messagebox.showerror("Voice", "Voice failed: %s" % str(exc)[:220])
 
     def _stop_recording(self):
         self._recording = False
@@ -443,7 +442,7 @@ class MainWindow(ctk.CTk):
         if err is not None:
             msg = getattr(err, "message_en", None) or str(err)
             self._set_status(self._t("mic_failed", msg[:90]))
-            messagebox.showerror("🎤 Voice / හඬ ටයිප්", self._t("mic_failed", msg[:200]))
+            messagebox.showerror("Voice", "Voice failed: %s" % msg[:220])
             return
         text = (text or "").strip()
         if not text:
@@ -497,7 +496,7 @@ class MainWindow(ctk.CTk):
             self._set_status("❌ " + (msg or result.get("message", "")))
             messagebox.showerror(
                 "Gemini Error",
-                (result.get("summary_si", "") + "\n\n" + result.get("summary_en", "")).strip(),
+                (result.get("summary_en", "") or result.get("message", "")).strip(),
             )
             return
 

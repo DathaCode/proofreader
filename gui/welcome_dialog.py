@@ -14,38 +14,35 @@ class WelcomeDialog(ctk.CTkToplevel):
         self.on_add_key = on_add_key
         self.on_skip = on_skip
 
-        self.title("👋 සාදරයෙන් පිළිගනිමු!")
-        self.geometry("460x320")
+        self.title("Welcome")
+        self.geometry("460x300")
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
 
         ctk.CTkLabel(
             self,
-            text="👋 සාදරයෙන් පිළිගනිමු!\nWelcome to Sinhala Proofreader!",
+            text="👋 Welcome to Sinhala Proofreader!",
             font=font(20, True),
             justify="center",
-        ).pack(pady=(24, 10))
+        ).pack(pady=(26, 10))
 
         ctk.CTkLabel(
             self,
-            text="මෙම යෙදුම ක්‍රියා කිරීමට Gemini API Key එකක්\n"
-            "අවශ්‍යයි. (නොමිලේ ලබාගත හැක)\n\n"
-            "This app needs a Gemini API key to work.\n"
-            "You can get one free.",
+            text="This app needs a Gemini API key to work.\nYou can get one for free.",
             font=font(14),
             justify="center",
         ).pack(pady=(0, 20))
 
         ctk.CTkButton(
             self,
-            text="🔑 API Key එකතු කරන්න (Recommended)",
+            text="🔑 Add API Key (Recommended)",
             command=self._add_key,
         ).pack(fill="x", padx=40, pady=6)
 
         ctk.CTkButton(
             self,
-            text="⏭️ පසුව (Later)",
+            text="⏭️ Later",
             fg_color="gray40",
             hover_color="gray30",
             command=self._skip,

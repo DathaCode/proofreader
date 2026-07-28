@@ -49,32 +49,12 @@ def _new_wav_path():
     return path
 
 
-def _pick_input_device():
-    """Return the default input device index, or the first device with input
-    channels. Raises if the machine has no input device at all."""
-    try:
-        default_in = _sd.default.device[0]
-    except Exception:
-        default_in = None
-    if default_in is not None and default_in != -1:
-        try:
-            if _sd.query_devices(default_in).get("max_input_channels", 0) > 0:
-                return default_in
-        except Exception:
-            pass
-    for i, dev in enumerate(_sd.query_devices()):
-        if dev.get("max_input_channels", 0) > 0:
-            return i
-    raise RecorderError("No microphone found. Plug in a mic (or enable the "
-                        "built-in one) and try again.")
-
-
 class MicRecorder:
     def __init__(self):
         self._recording = False
         self._frames = []
         self._stream = None
-        self._device = None
+        self._rate = RATE
 
     @property
     def is_recording(self):
@@ -115,20 +95,49 @@ class MicRecorder:
     # ----- sounddevice backend ------------------------------------------
     def _start_sd(self):
         self._frames = []
-        self._device = _pick_input_device()
 
         def _cb(indata, frames, time_info, status):
             # indata is a raw cffi buffer (int16 bytes) because dtype='int16'
             self._frames.append(bytes(indata))
 
+        # Try, in order of robustness:
+        #   1) PortAudio's OWN default input (device=None) at 16 kHz, then native.
+        #   2) every input-capable device, at 16 kHz then its native rate.
+        # device=None avoids the "Invalid device [-9996]" that a stale explicit
+        # index causes inside a frozen build.
+        candidates = [(None, RATE)]
         try:
-            self._stream = _sd.RawInputStream(
-                samplerate=RATE, channels=CHANNELS, dtype="int16",
-                device=self._device, callback=_cb, blocksize=0)
-            self._stream.start()
-        except Exception as exc:
-            self._stream = None
-            raise RecorderError("Cannot start the microphone: %s" % exc)
+            info = _sd.query_devices(kind="input")
+            native = int(info["default_samplerate"]) if info else 0
+            if native and native != RATE:
+                candidates.append((None, native))
+        except Exception:
+            pass
+        try:
+            for i, dev in enumerate(_sd.query_devices()):
+                if dev.get("max_input_channels", 0) > 0:
+                    candidates.append((i, RATE))
+                    sr = int(dev.get("default_samplerate") or 0)
+                    if sr and sr != RATE:
+                        candidates.append((i, sr))
+        except Exception:
+            pass
+
+        last = None
+        for device, rate in candidates:
+            try:
+                self._stream = _sd.RawInputStream(
+                    samplerate=rate, channels=CHANNELS, dtype="int16",
+                    device=device, callback=_cb)
+                self._stream.start()
+                self._rate = rate
+                return
+            except Exception as exc:
+                last = exc
+                self._stream = None
+        raise RecorderError(
+            "Cannot start the microphone (tried %d device option(s)). "
+            "Last error: %s" % (len(candidates), last))
 
     def _stop_sd(self):
         try:
@@ -144,7 +153,7 @@ class MicRecorder:
         with wave.open(path, "wb") as wf:
             wf.setnchannels(CHANNELS)
             wf.setsampwidth(SAMPWIDTH)
-            wf.setframerate(RATE)
+            wf.setframerate(self._rate)
             wf.writeframes(data)
         return path
 

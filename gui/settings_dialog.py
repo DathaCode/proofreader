@@ -49,7 +49,9 @@ class SettingsDialog(ctk.CTkToplevel):
 
     # ----- i18n helpers --------------------------------------------------
     def _lang(self):
-        return self.lang_var.get()
+        # Settings dialog is English-only chrome (the UI Language radio still
+        # controls the MAIN window's language, which is saved on Save).
+        return "en"
 
     def _t(self, key, *args):
         return t(self._lang(), key, *args)
