@@ -12,7 +12,7 @@ import unicodedata
 
 import requests as req_lib
 
-from .gemini_engine import GeminiError
+from .gemini_engine import GeminiError, _restore_linebreaks
 
 
 class LanProxyProofreader:
@@ -90,6 +90,9 @@ class LanProxyProofreader:
         errors = errors[:10]
 
         corrected = result.get("corrected_text", text)
+        # Keep the input's line-break layout even if the proxy returned a paragraph
+        # (works even against an un-updated proxy).
+        corrected = _restore_linebreaks(text, corrected)
         # Resolve highlight positions against the ORIGINAL text (what the Results
         # panel shows) — NOT the corrected text, where the wrong word is gone.
         # Pick each error's next unclaimed occurrence so repeated words don't all

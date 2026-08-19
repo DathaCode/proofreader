@@ -121,6 +121,7 @@ Common Sinhala Unicode issues that break conjuncts and modifiers:
 
 SECTION 3: SYSTEM CONSTRAINTS & CONFIDENCE RULES
 - Output MUST be strictly valid JSON. Do not include any conversational preamble or markdown text outside the JSON.
+- PRESERVE FORMATTING: In "corrected_text", keep the EXACT line-break structure of the input. If the input has multiple lines (newline characters), the corrected_text MUST have the SAME line breaks in the SAME places (as \n inside the JSON string). Never merge separate lines into one paragraph, and never add or remove line breaks. Only fix words/grammar — leave the layout untouched.
 - CONFIDENCE RULES:
   * Only include an error in the "errors" array if the confidence score is >= 0.75.
   * If you are unsure or the confidence is < 0.75, DO NOT flag it. A missed error is far better than a false positive that flags valid Sinhala.
@@ -236,7 +237,7 @@ Your output must match this JSON format exactly:
       "confidence": 0.95
     }
   ],
-  "corrected_text": "full corrected paragraph",
+  "corrected_text": "full corrected text with the SAME line breaks as the input",
   "summary_si": "සිංහලෙන් සාරාංශය",
   "summary_en": "English summary"
 }
@@ -387,6 +388,8 @@ class GeminiProofreader:
 
         # Corrected text (Gemini ran on the already pre-fixed text).
         corrected = str(data.get("corrected_text", text)) or text
+        # Keep the input's line-break layout even if the model returned a paragraph.
+        corrected = _restore_linebreaks(text, corrected)
 
         # Resolve character positions for highlighting (pre-fixed words are
         # already replaced, so they won't locate — that's expected).
@@ -627,6 +630,62 @@ class GeminiProofreader:
             "summary_en": "Could not parse the model response",
             "warning": "JSON parse failed",
         }
+
+
+def _snap_to_space(s, p):
+    """Move split index p to the nearest whitespace so a word is never broken."""
+    if p <= 0 or p >= len(s):
+        return p
+    if s[p - 1].isspace() or s[p].isspace():
+        return p
+    for d in range(1, 30):
+        if p - d > 0 and s[p - d].isspace():
+            return p - d + 1
+        if p + d < len(s) and s[p + d].isspace():
+            return p + d + 1
+    return p
+
+
+def _restore_linebreaks(original, corrected):
+    """Re-apply `original`'s line breaks to `corrected` if the model dropped them.
+
+    Only acts when the input had newlines and the output has none. Split points
+    are mapped via a char-level diff and snapped to whitespace, so the corrected
+    text ends up with the same number of lines in the same places.
+    """
+    import difflib
+    if "\n" not in original or "\n" in corrected:
+        return corrected
+    blocks = difflib.SequenceMatcher(None, original, corrected,
+                                     autojunk=False).get_matching_blocks()
+
+    def map_pos(oi):
+        after = len(corrected)
+        for i, j, size in blocks:
+            if size == 0:
+                continue
+            if oi < i:
+                return j
+            if i <= oi < i + size:
+                return j + (oi - i)
+            after = j + size
+        return after
+
+    positions = []
+    for i, ch in enumerate(original):
+        if ch == "\n":
+            positions.append(_snap_to_space(corrected, map_pos(i)))
+    positions = sorted(p for p in set(positions) if 0 < p < len(corrected))
+    if not positions:
+        return corrected
+    out, prev = [], 0
+    for p in positions:
+        if p <= prev:
+            continue
+        out.append(corrected[prev:p].rstrip())
+        prev = p
+    out.append(corrected[prev:].lstrip())
+    return "\n".join(out)
 
 
 def _clamp_conf(value):

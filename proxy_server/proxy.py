@@ -157,9 +157,11 @@ class ProxyState:
         all_errors.sort(key=lambda x: x.get("confidence", 1), reverse=True)
         all_errors = all_errors[:MAX_ERRORS]
 
+        corrected = str(data.get("corrected_text", text)) or text
+        corrected = _restore_linebreaks(text, corrected)
         return {
             "errors": all_errors,
-            "corrected_text": str(data.get("corrected_text", text)) or text,
+            "corrected_text": corrected,
             "summary_si": str(data.get("summary_si", "")),
             "summary_en": str(data.get("summary_en", "")),
             "pre_fixed_count": len(pre_fixed),
@@ -211,6 +213,55 @@ def _stats(text, errors, pre_fixed=0):
         "encoding_errors": sum(1 for e in errors if e.get("type") == "encoding_error"),
         "pre_fixed": pre_fixed,
     }
+
+
+def _snap_to_space(s, p):
+    if p <= 0 or p >= len(s):
+        return p
+    if s[p - 1].isspace() or s[p].isspace():
+        return p
+    for d in range(1, 30):
+        if p - d > 0 and s[p - d].isspace():
+            return p - d + 1
+        if p + d < len(s) and s[p + d].isspace():
+            return p + d + 1
+    return p
+
+
+def _restore_linebreaks(original, corrected):
+    """Re-apply the input's line breaks if the model returned a paragraph."""
+    import difflib
+    if "\n" not in original or "\n" in corrected:
+        return corrected
+    blocks = difflib.SequenceMatcher(None, original, corrected,
+                                     autojunk=False).get_matching_blocks()
+
+    def map_pos(oi):
+        after = len(corrected)
+        for i, j, size in blocks:
+            if size == 0:
+                continue
+            if oi < i:
+                return j
+            if i <= oi < i + size:
+                return j + (oi - i)
+            after = j + size
+        return after
+
+    positions = sorted(
+        p for p in {_snap_to_space(corrected, map_pos(i))
+                    for i, ch in enumerate(original) if ch == "\n"}
+        if 0 < p < len(corrected))
+    if not positions:
+        return corrected
+    out, prev = [], 0
+    for p in positions:
+        if p <= prev:
+            continue
+        out.append(corrected[prev:p].rstrip())
+        prev = p
+    out.append(corrected[prev:].lstrip())
+    return "\n".join(out)
 
 
 def _parse_json(raw, fallback_text):
