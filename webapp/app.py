@@ -68,6 +68,14 @@ STATE = AppState()
 app = Flask(__name__)
 app.secret_key = STATE.cfg.get("session_secret")
 app.permanent_session_lifetime = timedelta(hours=int(STATE.cfg.get("session_hours", 8)))
+# Session-cookie hardening. Both prod and dev serve the app over HTTPS (Let's
+# Encrypt / Cloudflare), so Secure is safe. SameSite=Lax stops the cookie from
+# riding cross-site POSTs (CSRF defense); HttpOnly keeps JS from reading it.
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 
 
 # ----- auth helpers ------------------------------------------------------

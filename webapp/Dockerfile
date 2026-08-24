@@ -24,4 +24,7 @@ RUN mkdir -p /app/data
 
 EXPOSE 5000
 
-CMD ["python", "-u", "app.py"]
+# Production WSGI server (replaces the Werkzeug dev server). One worker keeps the
+# in-memory rate limiter + shared SQLite connection consistent; 8 threads give
+# concurrency so one slow Gemini call can't block every other request.
+CMD ["gunicorn", "-w", "1", "--threads", "8", "--timeout", "180", "--access-logfile", "-", "-b", "0.0.0.0:5000", "app:app"]

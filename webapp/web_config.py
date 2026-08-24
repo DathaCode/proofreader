@@ -10,7 +10,10 @@ generated at startup and persisted if one isn't already present.
 
 import os
 import json
+import hmac
 import hashlib
+
+from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -31,10 +34,24 @@ LOG_PATH = os.path.join(DATA_DIR, "usage_log.csv")
 
 
 def sha256(text):
+    """Legacy unsalted SHA-256 — kept ONLY to verify old stored hashes."""
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
 
-# Default credentials (spec):
+def _is_legacy_hash(h):
+    """True for an old bare SHA-256 hex digest (64 hex chars, no algorithm tag).
+    New hashes look like 'pbkdf2:sha256:...' / 'scrypt:...' so they never match."""
+    return (isinstance(h, str) and len(h) == 64
+            and all(c in "0123456789abcdef" for c in h.lower()))
+
+
+def hash_password(password):
+    """Salted, slow PBKDF2 hash (werkzeug). Replaces unsalted SHA-256."""
+    return generate_password_hash(password or "")
+
+
+# Default credentials (only seed a FRESH install; existing data/web_config.json
+# keeps its own accounts). Stored as PBKDF2 now, not SHA-256.
 #   user  : sinhala / proof123
 #   admin : admin   / admin1234
 DEFAULT_CONFIG = {
@@ -48,8 +65,8 @@ DEFAULT_CONFIG = {
     "rate_limit_per_min": 10,          # /api/proofread requests per IP per minute
     "confidence_threshold": 0.75,
     "users": {
-        "sinhala": {"password": sha256("proof123"), "role": "user"},
-        "admin":   {"password": sha256("admin1234"), "role": "admin"},
+        "sinhala": {"password": hash_password("proof123"), "role": "user"},
+        "admin":   {"password": hash_password("admin1234"), "role": "admin"},
     },
 }
 
@@ -90,23 +107,41 @@ class WebConfig:
 
     # ----- auth ----------------------------------------------------------
     def authenticate(self, username, password):
-        """Return the role ("user"/"admin") on success, else None."""
+        """Return the role ("user"/"admin") on success, else None.
+
+        Backwards compatible: old accounts are stored as unsalted SHA-256. On the
+        first successful login their hash is transparently re-hashed to PBKDF2 and
+        saved — so existing users keep their passwords and never need re-creating.
+        """
         user = (username or "").strip()
         rec = self.data.get("users", {}).get(user)
         if not rec:
             return None
-        if rec.get("password") == sha256(password):
-            return rec.get("role", "user")
+        stored = rec.get("password", "")
+
+        if _is_legacy_hash(stored):
+            # Old SHA-256 hash — verify (constant-time), then upgrade in place.
+            if hmac.compare_digest(sha256(password), stored):
+                rec["password"] = hash_password(password)
+                self.save()
+                return rec.get("role", "user")
+            return None
+
+        try:
+            if check_password_hash(stored, password or ""):
+                return rec.get("role", "user")
+        except Exception:
+            pass
         return None
 
     def set_password(self, username, new_password):
-        """Set/replace a user's password (hashed). Creates the user if absent."""
+        """Set/replace a user's password (PBKDF2-hashed). Creates the user if absent."""
         user = (username or "").strip()
         if not user or not new_password:
             return False
         users = self.data.setdefault("users", {})
         role = users.get(user, {}).get("role", "user")
-        users[user] = {"password": sha256(new_password), "role": role}
+        users[user] = {"password": hash_password(new_password), "role": role}
         self.save()
         return True
 
