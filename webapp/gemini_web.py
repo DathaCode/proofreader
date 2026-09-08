@@ -111,6 +111,44 @@ class WebProofreader:
         except Exception as e:
             return False, str(e)[:240]
 
+    # ----- speech-to-text (voice typing) ---------------------------------
+    # Spoken-language hints, so the model writes the correct script.
+    _SPEECH_LANG = {
+        "si": "The speaker is talking in Sinhala (සිංහල). Write it in Sinhala script.",
+        "ta": "The speaker is talking in Tamil (தமிழ்). Write it in Tamil script.",
+        "en": "The speaker is talking in English. Write it in English.",
+    }
+
+    def transcribe(self, audio_b64, mime_type="audio/wav", lang=None):
+        """Transcribe recorded speech to text via Gemini. `lang` (si/ta/en) is a
+        hint from the UI's Text-language picker; None = let Gemini detect."""
+        if self.client is None:
+            raise RuntimeError(self.model_error or "Gemini model not ready")
+
+        lang = normalize_lang(lang, default="") if lang else ""
+        if lang in self._SPEECH_LANG:
+            target = self._SPEECH_LANG[lang]
+        else:
+            target = ("The speaker may be using Sinhala, Tamil or English. "
+                      "Detect which, and write it in that language's own script.")
+
+        prompt = (
+            "You are a precise speech-to-text transcriber.\n"
+            + target + "\n\n"
+            "Rules:\n"
+            "- Output ONLY the transcription text. No preamble, no quotes, no notes.\n"
+            "- Do NOT translate. Keep the speaker's original language and script.\n"
+            "- English words spoken inside Sinhala/Tamil speech stay in Latin script\n"
+            "  (e.g. software, meeting, email).\n"
+            "- Use natural punctuation and sentence breaks.\n"
+            "- Transcribe only what is actually said — never invent or complete words.\n"
+            "- If the audio is silent or unintelligible, output nothing at all.\n"
+        )
+
+        with self.sem:
+            text = self.client.transcribe(prompt, audio_b64, mime_type=mime_type)
+        return sanitize_input(text or "").strip()
+
     # ----- core proofreading (three layers, language-aware) --------------
     def proofread(self, text, lang=None):
         """Proofread `text`. `lang` (si/ta/en) forces a prompt; if omitted the

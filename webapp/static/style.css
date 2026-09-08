@@ -322,3 +322,72 @@ a.link:hover { text-decoration: underline; }
 .appfooter .credit { color: var(--muted); font-size: 12.5px; }
 .appfooter.login { border-top: 0; margin-top: 18px; }
 html[data-theme="dark"] .appfooter .warn { color: #ff5a5a; }
+
+/* ---------- voice typing (mic button) ---------- */
+.micbtn {
+  position: relative;
+  width: 42px; height: 42px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--accent);
+  border-radius: 50%;
+  display: inline-grid; place-items: center;
+  cursor: pointer; padding: 0;
+  transition: background .15s, border-color .15s, color .15s, transform .08s;
+  flex: 0 0 auto;
+}
+.micbtn:hover { background: var(--border); }
+.micbtn:active { transform: scale(.94); }
+.micbtn:disabled { opacity: .5; cursor: not-allowed; }
+.micbtn .mic-svg { width: 21px; height: 21px; fill: currentColor; display: block; }
+
+/* the stop square (hidden until recording) */
+.micbtn .mic-stop {
+  position: absolute; width: 13px; height: 13px;
+  border-radius: 3px; background: #fff;
+  opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s;
+}
+
+/* expanding pulse ring */
+.micbtn .mic-ring {
+  position: absolute; inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--spell);
+  opacity: 0; pointer-events: none;
+}
+
+/* ----- recording state ----- */
+.micbtn.recording {
+  background: var(--spell);
+  border-color: var(--spell);
+  color: #fff;
+}
+.micbtn.recording .mic-svg { opacity: 0; }
+.micbtn.recording .mic-stop { opacity: 1; transform: scale(1); }
+.micbtn.recording .mic-ring { animation: micpulse 1.5s ease-out infinite; }
+@keyframes micpulse {
+  0%   { opacity: .75; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.7); }
+}
+
+/* ----- transcribing state ----- */
+.micbtn.busy { color: var(--muted); pointer-events: none; }
+.micbtn.busy .mic-svg { opacity: 0; }
+.micbtn.busy::after {
+  content: ""; position: absolute;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+
+/* status text next to the button (timer / "Transcribing…") */
+.mic-status {
+  font-size: 12.5px; color: var(--muted); font-family: var(--intl);
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.mic-status.rec { color: var(--spell); font-weight: 600; }
+.mic-status .rec-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--spell);
+  animation: recblink 1.1s ease-in-out infinite;
+}
+@keyframes recblink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }

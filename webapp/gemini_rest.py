@@ -88,6 +88,31 @@ class GeminiRest:
             raise _http_error(r)
         return _extract_text(r.json())
 
+    # ----- audio transcription -------------------------------------------
+    def transcribe(self, prompt, audio_b64, mime_type="audio/wav", temperature=0.0):
+        """Send inline audio + an instruction; return the model's plain text.
+
+        `audio_b64` is base64 of a Gemini-supported audio format (wav/mp3/ogg/
+        flac/aac). Temperature 0 keeps transcription deterministic.
+        """
+        if not self.api_key:
+            raise GeminiRestError("No API key set")
+        url = "%s/models/%s:generateContent?key=%s" % (API_ROOT, self.model, self.api_key)
+        body = {
+            "contents": [{"parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": mime_type, "data": audio_b64}},
+            ]}],
+            "generationConfig": {"temperature": temperature},
+        }
+        try:
+            r = requests.post(url, json=body, timeout=self.timeout)
+        except requests.exceptions.RequestException as e:
+            raise GeminiRestError("Network error: %s" % e, detail=str(e))
+        if r.status_code != 200:
+            raise _http_error(r)
+        return _extract_text(r.json())
+
     # ----- diagnostics ---------------------------------------------------
     def test(self):
         """Lightweight reachability/auth check. Returns (ok, message)."""

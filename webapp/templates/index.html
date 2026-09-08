@@ -39,6 +39,18 @@
         <div class="toolbar">
           <button class="btn primary" onclick="checkText()"><span data-i18n="check_btn">✅ Check</span></button>
           <button class="btn ghost" onclick="clearText()"><span data-i18n="clear_btn">🗑️ Clear</span></button>
+
+          <!-- voice typing -->
+          <button id="micBtn" class="micbtn" type="button" onclick="toggleMic()"
+                  data-i18n-title="mic_title" title="Voice typing" aria-label="Voice typing">
+            <span class="mic-ring" aria-hidden="true"></span>
+            <svg class="mic-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 14.5a3.25 3.25 0 0 0 3.25-3.25v-5a3.25 3.25 0 1 0-6.5 0v5A3.25 3.25 0 0 0 12 14.5z"/>
+              <path d="M18.5 11.25a1 1 0 1 0-2 0 4.5 4.5 0 0 1-9 0 1 1 0 1 0-2 0 6.5 6.5 0 0 0 5.5 6.42V20H9.5a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2H13v-2.33a6.5 6.5 0 0 0 5.5-6.42z"/>
+            </svg>
+            <span class="mic-stop" aria-hidden="true"></span>
+          </button>
+          <span id="micStatus" class="mic-status" hidden></span>
           <span class="langpick">
             <label class="lbl" data-i18n="text_lang_label">Text language</label>
             <select id="textLang">

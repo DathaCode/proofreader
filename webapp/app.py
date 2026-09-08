@@ -19,6 +19,7 @@ Run:  python -u app.py     (Docker CMD) — listens on 0.0.0.0:5000
 """
 
 import time
+import base64
 import threading
 from collections import deque
 from datetime import timedelta
@@ -237,6 +238,53 @@ def api_corrections():
             saved += 1
     return jsonify({"ok": True, "saved": saved,
                     "total": STATE.db.get_stats()["total"]})
+
+
+# ----- voice typing (speech -> text) -------------------------------------
+# Browser records mic audio, re-encodes to 16 kHz mono WAV, and posts it here.
+MAX_AUDIO_BYTES = 15 * 1024 * 1024      # ~15 MB hard cap (60 s WAV is ~1.9 MB)
+
+
+@app.route("/api/transcribe", methods=["POST"])
+@login_required
+def api_transcribe():
+    ip = client_ip()
+    if not STATE.rate_ok(ip):
+        return jsonify({
+            "ok": False, "error": "rate_limited",
+            "message_si": "ඉල්ලීම් සීමාව ඉක්මවා ඇත",
+            "message_en": "Rate limit exceeded - try again in a minute.",
+        }), 429
+
+    f = request.files.get("audio")
+    if f is None:
+        return jsonify({"ok": False, "error": "no_audio"}), 400
+
+    data = f.read(MAX_AUDIO_BYTES + 1)
+    if not data:
+        return jsonify({"ok": False, "error": "empty_audio"}), 400
+    if len(data) > MAX_AUDIO_BYTES:
+        return jsonify({"ok": False, "error": "audio_too_large"}), 413
+
+    lang = (request.form.get("lang") or "").strip() or None
+    mime = (f.mimetype or "audio/wav").split(";")[0]
+
+    t0 = time.time()
+    try:
+        b64 = base64.b64encode(data).decode("ascii")
+        text = STATE.engine.transcribe(b64, mime_type=mime, lang=lang)
+        latency = int((time.time() - t0) * 1000)
+        STATE.logger.log(ip, len(text.split()), 0, 0, latency, "transcribe")
+        return jsonify({"ok": True, "text": text, "lang": lang or ""})
+    except Exception as e:
+        latency = int((time.time() - t0) * 1000)
+        logger.exception("transcription failed")
+        STATE.logger.log(ip, 0, 0, 0, latency, "transcribe_error")
+        return jsonify({
+            "ok": False, "text": "",
+            "message_en": str(e)[:200],
+            "message_si": "වචන හජුනාගැනීම අසාර්ථකයි",
+        }), 500
 
 
 # ----- admin data + actions API ------------------------------------------

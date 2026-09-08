@@ -247,6 +247,190 @@
     }
   };
 
+  // ================= voice typing (mic -> Gemini -> text) =================
+  // Records with MediaRecorder, re-encodes to 16 kHz mono WAV (a format Gemini
+  // accepts and that is small + ideal for speech), uploads to /api/transcribe,
+  // then inserts the returned text at the caret in #input.
+  const micBtn = $("micBtn");
+  const micStatus = $("micStatus");
+  const MAX_REC_MS = 60000;                 // hard cap: 60 s per take
+
+  let mediaRecorder = null, mediaStream = null, chunks = [];
+  let recTimer = null, recStart = 0, maxTimer = null, micState = "idle";
+
+  function setMicState(state, msg) {
+    micState = state;
+    if (!micBtn) return;
+    micBtn.classList.toggle("recording", state === "recording");
+    micBtn.classList.toggle("busy", state === "busy");
+    micBtn.disabled = (state === "busy");
+    if (!micStatus) return;
+    if (msg) { micStatus.hidden = false; micStatus.textContent = msg; }
+    else { micStatus.hidden = true; micStatus.textContent = ""; }
+    micStatus.classList.toggle("rec", state === "recording");
+  }
+
+  function fmtTime(ms) {
+    const s = Math.floor(ms / 1000);
+    return String(Math.floor(s / 60)) + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  function tickTimer() {
+    if (micState !== "recording") return;
+    micStatus.hidden = false;
+    micStatus.classList.add("rec");
+    micStatus.innerHTML = '<span class="rec-dot"></span>' +
+      escapeHtml(window.t("mic_recording")) + "  " + fmtTime(Date.now() - recStart);
+  }
+
+  function stopTracks() {
+    if (mediaStream) { mediaStream.getTracks().forEach((t) => t.stop()); mediaStream = null; }
+  }
+
+  function clearTimers() {
+    clearInterval(recTimer); recTimer = null;
+    clearTimeout(maxTimer); maxTimer = null;
+  }
+
+  // ---- WAV (16 kHz mono PCM16) encoder ----
+  async function toWav16k(blob) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    let decoded;
+    try {
+      decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    } finally {
+      try { ctx.close(); } catch (e) {}
+    }
+    const rate = 16000;
+    const frames = Math.max(1, Math.ceil(decoded.duration * rate));
+    const off = new OfflineAudioContext(1, frames, rate);   // 1 ch = auto downmix
+    const src = off.createBufferSource();
+    src.buffer = decoded;
+    src.connect(off.destination);
+    src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+
+    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const dv = new DataView(buf);
+    const put = (o, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(o + i, str.charCodeAt(i)); };
+    put(0, "RIFF"); dv.setUint32(4, 36 + pcm.length * 2, true); put(8, "WAVE");
+    put(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true); dv.setUint32(24, rate, true);
+    dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    put(36, "data"); dv.setUint32(40, pcm.length * 2, true);
+    let o = 44;
+    for (let i = 0; i < pcm.length; i++, o += 2) {
+      const v = Math.max(-1, Math.min(1, pcm[i]));
+      dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+    }
+    return new Blob([dv], { type: "audio/wav" });
+  }
+
+  // ---- insert transcribed text at the caret ----
+  function insertAtCaret(el, text) {
+    const start = el.selectionStart, end = el.selectionEnd;
+    const before = el.value.slice(0, start), after = el.value.slice(end);
+    const sep = (before && !/\s$/.test(before)) ? " " : "";
+    el.value = before + sep + text + after;
+    const pos = (before + sep + text).length;
+    el.setSelectionRange(pos, pos);
+    el.focus();
+    updateCounter();
+  }
+
+  async function sendForTranscription(wav) {
+    setMicState("busy", window.t("mic_transcribing"));
+    try {
+      const fd = new FormData();
+      fd.append("audio", wav, "speech.wav");
+      const forced = textLang.value;          // follows the Text-language picker
+      if (forced) fd.append("lang", forced);
+
+      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+      if (res.status === 401) { window.location = "/login"; return; }
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 429) { toast(window.t("rate_limited"), "err"); return; }
+      if (!res.ok || data.ok === false) {
+        toast(data.message_en || window.t("mic_failed"), "err");
+        return;
+      }
+      const text = (data.text || "").trim();
+      if (!text) { toast(window.t("mic_nospeech"), ""); return; }
+      insertAtCaret(input, text);
+      toast(window.t("mic_inserted"), "ok");
+    } catch (err) {
+      toast(window.t("mic_failed") + ": " + err.message, "err");
+    } finally {
+      setMicState("idle", "");
+    }
+  }
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      toast(window.t("mic_unsupported"), "err"); return;
+    }
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true,
+                 noiseSuppression: true, autoGainControl: true },
+      });
+    } catch (err) {
+      toast(window.t("mic_denied"), "err"); return;
+    }
+
+    chunks = [];
+    // Pick whatever this browser can record; we re-encode to WAV afterwards.
+    let opts = {};
+    for (const m of ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]) {
+      if (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(m)) {
+        opts = { mimeType: m }; break;
+      }
+    }
+    try { mediaRecorder = new MediaRecorder(mediaStream, opts); }
+    catch (e) { mediaRecorder = new MediaRecorder(mediaStream); }
+
+    mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      clearTimers(); stopTracks();
+      const raw = new Blob(chunks, { type: chunks[0] ? chunks[0].type : "audio/webm" });
+      chunks = [];
+      if (!raw.size) { setMicState("idle", ""); toast(window.t("mic_nospeech"), ""); return; }
+      setMicState("busy", window.t("mic_transcribing"));
+      try {
+        const wav = await toWav16k(raw);
+        await sendForTranscription(wav);
+      } catch (err) {
+        setMicState("idle", "");
+        toast(window.t("mic_failed") + ": " + err.message, "err");
+      }
+    };
+
+    mediaRecorder.start();
+    recStart = Date.now();
+    setMicState("recording", window.t("mic_recording"));
+    tickTimer();
+    recTimer = setInterval(tickTimer, 500);
+    maxTimer = setTimeout(() => {
+      if (micState === "recording") { toast(window.t("mic_maxlen"), ""); stopRecording(); }
+    }, MAX_REC_MS);
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+    else { clearTimers(); stopTracks(); setMicState("idle", ""); }
+  }
+
+  window.toggleMic = function () {
+    if (micState === "busy") return;
+    if (micState === "recording") stopRecording();
+    else startRecording();
+  };
+
+  // Stop cleanly if the user navigates away mid-recording.
+  window.addEventListener("beforeunload", () => { clearTimers(); stopTracks(); });
+
   input.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); window.checkText(); }
   });
