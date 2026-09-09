@@ -234,10 +234,11 @@
     if (!confirm(window.t("confirm_save", corrections.length) + "\n\n" + preview +
         (corrections.length > 5 ? "\n…" : ""))) return;
     try {
+      const lang = (lastResult && lastResult.lang) || "si";
       const res = await fetch("/api/corrections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ corrections }),
+        body: JSON.stringify({ corrections, lang }),
       });
       const data = await res.json();
       if (data.ok) { toast(window.t("saved_n", data.saved), "ok"); lastCorrectedText = edited; }

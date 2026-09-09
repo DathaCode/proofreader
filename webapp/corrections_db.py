@@ -7,6 +7,12 @@ Thread-safe, SQLite-backed store of human corrections. Self-learning:
   * promotes frequently-seen + confirmed ones to "precheck" (instant local fix),
   * injects the top corrections into the Gemini prompt as few-shot examples.
 
+Corrections are tagged with `lang` (si/ta/en) so each language's few-shot
+injection only ever sees examples in its own script — a Tamil correction never
+leaks into the Sinhala prompt and vice versa. Rows written before this column
+existed default to "si" (the DB was Sinhala-only until this was added), which
+is the correct backfill since that was the only language it ever served.
+
 This is a drop-in replacement for the previous JSON implementation: the public
 class interface (method names, signatures, and return values) is identical, so
 no other file needs to change. `db_path` is now a .db (SQLite) file path.
@@ -30,6 +36,7 @@ CREATE TABLE IF NOT EXISTS corrections (
     wrong       TEXT NOT NULL UNIQUE,
     correct     TEXT NOT NULL,
     type        TEXT DEFAULT 'spelling',
+    lang        TEXT DEFAULT 'si',
     count       INTEGER DEFAULT 1,
     confidence  REAL DEFAULT 0.75,
     mode        TEXT DEFAULT 'inject_only',
@@ -47,7 +54,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 );
 """
 
-_COLUMNS = ("id", "wrong", "correct", "type", "count", "confidence", "mode",
+_COLUMNS = ("id", "wrong", "correct", "type", "lang", "count", "confidence", "mode",
             "context", "added_by", "source", "confirmed", "added_date", "last_seen")
 
 
@@ -70,6 +77,7 @@ class CorrectionsDB:
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+        self._migrate_lang_column()
         if not self._get_meta("created", ""):
             self._set_meta("created", datetime.now().isoformat())
             self._conn.commit()
@@ -115,6 +123,16 @@ class CorrectionsDB:
             self._conn.commit()
 
     # ----- migration -----------------------------------------------------
+    def _migrate_lang_column(self):
+        """Add the `lang` column to a pre-existing DB that predates it.
+        Existing rows backfill to 'si' — the DB was Sinhala-only before this,
+        so that's the correct language for everything already in it."""
+        cols = [r["name"] for r in self._conn.execute("PRAGMA table_info(corrections)")]
+        if "lang" not in cols:
+            self._conn.execute("ALTER TABLE corrections ADD COLUMN lang TEXT DEFAULT 'si'")
+            self._conn.execute("UPDATE corrections SET lang='si' WHERE lang IS NULL")
+            self._conn.commit()
+
     def _migrate_from_json(self):
         """Import an old corrections.json (same dir) once, then rename it."""
         json_path = os.path.splitext(self.db_path)[0] + ".json"
@@ -146,11 +164,12 @@ class CorrectionsDB:
             return
         self._conn.execute(
             "INSERT OR IGNORE INTO corrections "
-            "(id,wrong,correct,type,count,confidence,mode,context,"
+            "(id,wrong,correct,type,lang,count,confidence,mode,context,"
             "added_by,source,confirmed,added_date,last_seen) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (c.get("id") or self._next_id(), wrong, correct,
-             c.get("type", "spelling"), int(c.get("count", 1) or 1),
+             c.get("type", "spelling"), c.get("lang", "si") or "si",
+             int(c.get("count", 1) or 1),
              float(c.get("confidence", 0.75) or 0.75),
              c.get("mode", "inject_only"), c.get("context", "") or "",
              c.get("added_by", "unknown"), c.get("source", "manual"),
@@ -170,6 +189,7 @@ class CorrectionsDB:
             "wrong": row["wrong"],
             "correct": row["correct"],
             "type": row["type"],
+            "lang": row["lang"],
             "count": row["count"],
             "confidence": row["confidence"],
             "mode": row["mode"],
@@ -207,9 +227,12 @@ class CorrectionsDB:
     # ----- recording -----------------------------------------------------
     def record_correction(self, wrong, correct, error_type="spelling",
                           context="", added_by="unknown", source="manual",
-                          precheck_threshold=5):
+                          precheck_threshold=5, lang="si"):
         wrong = self._norm(wrong)
         correct = self._norm(correct)
+        lang = (lang or "si").strip().lower()
+        if lang not in ("si", "ta", "en"):
+            lang = "si"
         if not wrong or not correct or wrong == correct:
             return {"status": "skipped"}
 
@@ -233,10 +256,10 @@ class CorrectionsDB:
                 new_id = self._next_id()
                 self._conn.execute(
                     "INSERT INTO corrections "
-                    "(id,wrong,correct,type,count,confidence,mode,context,"
+                    "(id,wrong,correct,type,lang,count,confidence,mode,context,"
                     "added_by,source,confirmed,added_date,last_seen) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (new_id, wrong, correct, error_type, 1, 0.75, "inject_only",
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (new_id, wrong, correct, error_type, lang, 1, 0.75, "inject_only",
                      context, added_by, source, 0, now, now))
                 status = "added"
             self._set_meta("last_updated", now)
@@ -284,31 +307,45 @@ class CorrectionsDB:
             return changed
 
     # ----- consumption ---------------------------------------------------
-    def get_precheck_map(self):
-        """Return {wrong: correct} for instant local fixing."""
+    def get_precheck_map(self, lang=None):
+        """Return {wrong: correct} for instant local fixing. `lang` (si/ta/en)
+        restricts to that language's corrections; omit for all languages."""
         with self.lock:
-            return {
-                r["wrong"]: r["correct"]
-                for r in self._conn.execute(
+            if lang:
+                rows = self._conn.execute(
+                    "SELECT wrong, correct FROM corrections "
+                    "WHERE mode='precheck' AND confirmed=1 AND lang=?", (lang,))
+            else:
+                rows = self._conn.execute(
                     "SELECT wrong, correct FROM corrections "
                     "WHERE mode='precheck' AND confirmed=1")
-            }
+            return {r["wrong"]: r["correct"] for r in rows}
 
-    def _inject_examples(self, top_n):
-        rows = self._conn.execute(
-            "SELECT * FROM corrections WHERE mode IN ('precheck','inject_only') "
-            "ORDER BY count DESC, id ASC LIMIT ?", (top_n,))
+    def _inject_examples(self, top_n, lang=None):
+        if lang:
+            rows = self._conn.execute(
+                "SELECT * FROM corrections WHERE mode IN ('precheck','inject_only') "
+                "AND lang=? ORDER BY count DESC, id ASC LIMIT ?", (lang, top_n))
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM corrections WHERE mode IN ('precheck','inject_only') "
+                "ORDER BY count DESC, id ASC LIMIT ?", (top_n,))
         return [self._row_to_dict(r) for r in rows]
 
-    def get_inject_examples(self, top_n=40):
-        """Top N corrections for few-shot prompt injection."""
+    def get_inject_examples(self, top_n=40, lang=None):
+        """Top N corrections for few-shot prompt injection, optionally
+        restricted to one language (si/ta/en)."""
         with self.lock:
-            return self._inject_examples(top_n)
+            return self._inject_examples(top_n, lang)
 
-    def export_for_injection(self, top_n=40):
-        """Formatted block appended to the Gemini system prompt."""
+    _LANG_LABEL = {"si": "SINHALA", "ta": "TAMIL", "en": "ENGLISH"}
+
+    def export_for_injection(self, top_n=40, lang=None):
+        """Formatted block appended to the Gemini system prompt. `lang`
+        restricts the examples to that language so Sinhala/Tamil/English
+        prompts each only ever see their own past corrections."""
         with self.lock:
-            examples = self._inject_examples(top_n)
+            examples = self._inject_examples(top_n, lang)
         if not examples:
             return ""
         lines = [
@@ -316,9 +353,10 @@ class CorrectionsDB:
             % (e["wrong"], e["correct"], e["type"], e["count"])
             for e in examples
         ]
+        label = self._LANG_LABEL.get(lang, "") + " " if lang in self._LANG_LABEL else ""
         return (
-            "\n\n=== HUMAN-VERIFIED SINHALA CORRECTIONS ===\n"
-            "Confirmed errors from human reviewers — flag with confidence 1.0:\n"
+            "\n\n=== HUMAN-VERIFIED %sCORRECTIONS ===\n" % label
+            + "Confirmed errors from human reviewers — flag with confidence 1.0:\n"
             + "\n".join(lines)
             + "\n=== END VERIFIED CORRECTIONS ==="
         )

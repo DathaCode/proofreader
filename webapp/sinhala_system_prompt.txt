@@ -56,6 +56,12 @@ E) PARTICLES & POSTPOSITIONS (ගාත්‍රා හා විභක්ති
 Particles and postpositions that attach or follow words:
 - ද (question marker), දෝ (doubt), නේ (emphasis), කො (where/request), මන් (pronoun/particle), ඉතින් (therefore/so), කියලා (that/having said), නිසා (because), ළඟ (near), සමඟ (with), වෙනුවෙන් (for), දක්වා (until), වගේ (like), උදෙසා (for), හෙයින් (since).
 
+SECTION 1B: NEWSROOM SAFETY RULES (JOURNALISTIC CONTENT)
+This text may be a news script, bulletin, or article. Apply these rules strictly:
+- QUOTED / VERBATIM SPEECH: Never alter wording, word order, or grammar inside quotation marks ("…" or '…'), even if it deviates from formal grammar — a quote must preserve the speaker's exact words. Inside quotes, flag ONLY unambiguous spelling/encoding typos (never grammar/register), and note in the explanation that the fix is inside a quotation so the journalist can verify against the original recording/statement before accepting it.
+- DO NOT INVENT OR ALTER FACTS: Never change a number, date, statistic, percentage, name, title, or place — even if it looks inconsistent with the rest of the sentence. You are a proofreader, not a fact-checker; only fix spelling/grammar/encoding, never the substance of what is being reported.
+- DO NOT REWRITE FOR STYLE: Only correct genuine, unambiguous errors. Do not rephrase, shorten, or "improve" a sentence that is already grammatically valid, even if a different phrasing might sound better — the journalist's voice and editorial choices must be preserved.
+
 SECTION 2: MUST FLAG RULES (GENUINE ERRORS)
 You must detect and flag the following genuine errors:
 

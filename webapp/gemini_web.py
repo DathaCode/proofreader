@@ -24,6 +24,15 @@ _TAIL = {
     "en": "\n\nEnglish text to proofread:\n",
 }
 
+# Native-language note + explanation field key for a pre-fixed (human-DB)
+# correction, per language — English has no native explanation field of its
+# own, so its note goes into explanation_en directly (expl_native is unused).
+_PRECHECK_NOTE = {
+    "si": ("මිනිස් සමාලෝචකයෙකු විසින් නිවැරදි කළ දෝෂයකි", "explanation_si"),
+    "ta": ("மனிதப் பரிசோதகர் ஒருவரால் திருத்தப்பட்ட பிழை", "explanation_ta"),
+    "en": ("Previously corrected by a human reviewer", "explanation_en"),
+}
+
 CONFIDENCE_THRESHOLD = 0.75
 MAX_ERRORS = 10
 _VALID_TYPES = ("spelling", "grammar", "grammar_discord", "encoding_error")
@@ -170,21 +179,26 @@ class WebProofreader:
         else:
             lang = detect_language(text)
 
-        # LAYER 1 + 2 (self-learning corrections DB) apply to Sinhala only —
-        # the shared DB is Sinhala-tuned. Tamil/English go straight to Gemini.
+        # LAYER 1 + 2 (self-learning corrections DB) — each language only ever
+        # sees corrections saved for that language (tagged by `lang` in the
+        # DB), so Sinhala/Tamil/English each build up their own few-shot
+        # examples from real "Save my corrections" edits over time.
         pre_fixed = []
         inject_block = ""
-        if lang == "si":
-            for wrong, correct in self.db.get_precheck_map().items():
+        if lang in ("si", "ta", "en"):
+            expl_native, expl_key = _PRECHECK_NOTE.get(lang, _PRECHECK_NOTE["si"])
+            for wrong, correct in self.db.get_precheck_map(lang).items():
                 if wrong and wrong in text:
                     text = text.replace(wrong, correct)
-                    pre_fixed.append({
+                    entry = {
                         "original": wrong, "correction": correct, "type": "spelling",
                         "confidence": 1.0, "source": "human_db",
-                        "explanation_si": "මිනිස් සමාලෝචකයෙකු විසින් නිවැරදි කළ දෝෂයකි",
                         "explanation_en": "Previously corrected by a human reviewer",
-                    })
-            inject_block = self.db.export_for_injection(int(self.cfg.get("inject_top_n", 40)))
+                    }
+                    entry[expl_key] = expl_native
+                    pre_fixed.append(entry)
+            inject_block = self.db.export_for_injection(
+                int(self.cfg.get("inject_top_n", 40)), lang)
 
         # Protect embedded English words for Indic-script prompts only.
         english_note = ""
@@ -230,9 +244,10 @@ class WebProofreader:
                 "confidence": conf,
             })
 
-        # Give pre-fixed (Sinhala) errors a native explanation field too.
+        # Give pre-fixed (human-DB) errors a native explanation field too.
         for e in pre_fixed:
-            e.setdefault("explanation_native", e.get("explanation_si", ""))
+            e.setdefault("explanation_native", e.get("explanation_si")
+                         or e.get("explanation_ta") or e.get("explanation_en", ""))
 
         all_errors = pre_fixed + gemini_errors
         all_errors.sort(key=lambda x: x.get("confidence", 1), reverse=True)

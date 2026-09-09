@@ -105,6 +105,13 @@
           <input list="typeList" id="addType" value="spelling">
           <datalist id="typeList"><option value="spelling"><option value="grammar"><option value="encoding_error"></datalist>
         </div>
+        <div class="field"><label>Language</label>
+          <select id="addLang">
+            <option value="si" selected>Sinhala</option>
+            <option value="ta">Tamil</option>
+            <option value="en">English</option>
+          </select>
+        </div>
         <button class="btn primary" onclick="addCorrection()">➕ Add</button>
       </div>
       <div class="search-row">
@@ -115,10 +122,10 @@
         <table class="tbl">
           <thead><tr>
             <th data-sort="wrong">Wrong</th><th data-sort="correct">Correct</th>
-            <th data-sort="type">Type</th><th data-sort="count">Count</th>
+            <th data-sort="type">Type</th><th data-sort="lang">Lang</th><th data-sort="count">Count</th>
             <th data-sort="mode">Mode</th><th>Confirmed</th><th>Actions</th>
           </tr></thead>
-          <tbody id="corrBody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+          <tbody id="corrBody"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -167,10 +174,10 @@
         return x<y?-1*sortDir : x>y?1*sortDir : 0;
       });
       const body=$("corrBody");
-      if(!corrData.length){body.innerHTML='<tr><td colspan="7" class="muted">No corrections.</td></tr>';return;}
+      if(!corrData.length){body.innerHTML='<tr><td colspan="8" class="muted">No corrections.</td></tr>';return;}
       body.innerHTML = corrData.map(c=>`<tr>
         <td class="si">${esc(c.wrong)}</td><td class="si">${esc(c.correct)}</td>
-        <td>${esc(c.type)}</td><td>${c.count}</td>
+        <td>${esc(c.type)}</td><td>${esc(c.lang||"si")}</td><td>${c.count}</td>
         <td><span class="mode-badge mode-${c.mode}">${c.mode}</span></td>
         <td>${c.confirmed?"✔":"—"}</td>
         <td>
@@ -191,8 +198,9 @@
     };
     window.addCorrection = async function(){
       const wrong=$("addWrong").value.trim(), correct=$("addCorrect").value.trim(), type=$("addType").value.trim()||"spelling";
+      const lang=$("addLang").value||"si";
       if(!wrong||!correct){toast("Enter both words","err");return;}
-      const r = await jpost("/api/admin/correction/add",{wrong,correct,type});
+      const r = await jpost("/api/admin/correction/add",{wrong,correct,type,lang});
       if(r.ok){toast("Added ("+r.status+")","ok");$("addWrong").value="";$("addCorrect").value="";loadCorrections();}
       else toast("Add failed","err");
     };

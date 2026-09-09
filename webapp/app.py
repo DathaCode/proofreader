@@ -226,11 +226,13 @@ def api_corrections():
     """Save manual corrections captured from the user's edits."""
     payload = request.get_json(silent=True) or {}
     items = payload.get("corrections", [])
+    batch_lang = payload.get("lang", "si")
     saved = 0
     for c in items:
         res = STATE.db.record_correction(
             wrong=c.get("wrong", ""), correct=c.get("correct", ""),
             error_type=c.get("type", "spelling"),
+            lang=c.get("lang", batch_lang),
             added_by=session.get("user", "user"), source="user_edit",
             precheck_threshold=int(STATE.cfg.get("precheck_threshold", 5)),
         )
@@ -304,7 +306,8 @@ def admin_correction_add():
     f = request.get_json(silent=True) or request.form
     res = STATE.db.record_correction(
         f.get("wrong", ""), f.get("correct", ""),
-        f.get("type", "spelling"), added_by="admin", source="admin")
+        f.get("type", "spelling"), lang=f.get("lang", "si"),
+        added_by="admin", source="admin")
     return jsonify({"ok": True, "status": res.get("status")})
 
 
