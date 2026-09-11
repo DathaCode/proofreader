@@ -1,4 +1,4 @@
-' run_hidden.vbs — start the Sinhala proxy with NO visible window.
+' run_hidden.vbs - start the Sinhala proxy with NO visible window.
 ' Output is appended to data\server.log so you can still check activity.
 Option Explicit
 Dim fso, sh, here, cmd

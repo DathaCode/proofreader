@@ -19,6 +19,8 @@ Dockerfile  text eol=lf
 
 # Windows-only helper scripts keep CRLF (harmless; the proxy/exe use them).
 *.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.vbs       text eol=crlf
 
 # Binary assets must never be normalized.
 *.png binary
