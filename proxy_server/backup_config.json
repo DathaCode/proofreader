@@ -1,0 +1,8 @@
+{
+  "s3_bucket": "REPLACE_WITH_YOUR_BUCKET",
+  "s3_prefix": "lan-proxy-backups",
+  "aws_region": "",
+  "retention_days": 30,
+  "include_proxy_config": true,
+  "aws_cli": ""
+}

@@ -27,6 +27,7 @@ DEFAULT_CONFIG = {
     "inject_top_n": 40,             # corrections injected into the prompt
     "max_concurrent": 4,            # simultaneous Gemini calls
     "request_timeout": 60,
+    "waitress_threads": 8,           # HTTP worker threads (production server)
 }
 
 

@@ -292,6 +292,31 @@ app.config["STATE"] = STATE
 app.register_blueprint(admin_bp, url_prefix="/admin")
 
 
+# ----- live console log --------------------------------------------------
+# Waitress (unlike Flask's dev server) does not print a line per request, so we
+# print our own. This is what shows connected client IPs live in the console.
+@app.before_request
+def _log_start():
+    request._t0 = time.time()
+
+
+@app.after_request
+def _log_request(resp):
+    try:
+        ms = int((time.time() - getattr(request, "_t0", time.time())) * 1000)
+        print("%s  %-15s %-4s %-18s %s  %sms" % (
+            datetime.now().strftime("%H:%M:%S"),
+            request.remote_addr or "?",
+            request.method,
+            request.path[:18],
+            resp.status_code,
+            ms,
+        ), flush=True)          # flush: output may be redirected to a log file
+    except Exception:
+        pass
+    return resp
+
+
 @app.route("/status")
 def status():
     return jsonify({
@@ -374,6 +399,7 @@ def record_correction():
 def main():
     host = STATE.cfg.get("host", "0.0.0.0")
     port = int(STATE.cfg.get("port", 8765))
+    threads = int(STATE.cfg.get("waitress_threads", 8))
     print("=" * 50)
     print(" Sinhala Proofreader Proxy Server")
     print(" Model:", STATE.cfg.get("model"),
@@ -382,8 +408,20 @@ def main():
     print(" Listening on http://%s:%d   (admin: /admin)" % (host, port))
     if STATE.model_error:
         print(" WARNING:", STATE.model_error)
+
+    try:
+        from waitress import serve
+    except ImportError:
+        print(" WARNING: waitress not installed - falling back to Flask's dev")
+        print("          server (not recommended for multiple LAN clients).")
+        print("          Run INSTALL.bat, or:  pip install waitress")
+        print("=" * 50)
+        app.run(host=host, port=port, threaded=True)
+        return
+
+    print(" Server: waitress (production WSGI, %d threads)" % threads)
     print("=" * 50)
-    app.run(host=host, port=port, threaded=True)
+    serve(app, host=host, port=port, threads=threads)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,11 @@ clients themselves never need internet and never hold the API key.
 It also serves a web admin panel at  http://localhost:8765/admin  where you can
 view/manage corrections, see usage, and change settings.
 
+The server runs on Waitress, a production-grade WSGI server (installed by
+INSTALL.bat) — not Flask's built-in dev server. Nothing to configure; if you
+ever see "development server" in the console output, run INSTALL.bat again to
+install waitress (or:  pip install waitress).
+
 PREREQUISITES
 -------------
 - Windows 10/11

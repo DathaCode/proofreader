@@ -3,7 +3,7 @@ chcp 65001 >nul
 title Sinhala Proxy - First Time Setup
 cd /d "%~dp0"
 echo Installing Python packages...
-pip install flask google-generativeai requests --quiet
+pip install -r requirements_proxy.txt --quiet
 if errorlevel 1 (
     echo FAILED. Ensure Python 3.9+ is installed and on PATH.
     pause & exit /b 1
