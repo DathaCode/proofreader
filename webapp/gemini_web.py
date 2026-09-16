@@ -121,10 +121,18 @@ class WebProofreader:
             return False, str(e)[:240]
 
     # ----- speech-to-text (voice typing) ---------------------------------
-    # Spoken-language hints, so the model writes the correct script.
+    # Spoken-language hints, so the model writes the correct script. Tamil's
+    # hint is deliberately more explicit than Sinhala/English: Tamil and
+    # Sinhala are phonetically close and share a country context, and a
+    # weakly-grounded prompt can drift into transliterating Tamil speech
+    # into Sinhala letters (or plain Latin) instead of native Tamil script —
+    # this forbids that outright rather than just naming the target script.
     _SPEECH_LANG = {
         "si": "The speaker is talking in Sinhala (සිංහල). Write it in Sinhala script.",
-        "ta": "The speaker is talking in Tamil (தமிழ்). Write it in Tamil script.",
+        "ta": ("The speaker is talking in TAMIL (தமிழ்), not Sinhala. Transcribe using "
+               "native Tamil Unicode letters ONLY (அ-ஔ, க-ஹ, ொ/ோ/ெ/ே vowel signs, etc.). "
+               "Do NOT write the words in Sinhala script, and do NOT romanize/transliterate "
+               "Tamil into Latin letters — output real Tamil script text."),
         "en": "The speaker is talking in English. Write it in English.",
     }
 
@@ -139,7 +147,9 @@ class WebProofreader:
             target = self._SPEECH_LANG[lang]
         else:
             target = ("The speaker may be using Sinhala, Tamil or English. "
-                      "Detect which, and write it in that language's own script.")
+                      "Detect which, and write it in that language's own native script "
+                      "(Sinhala speech -> Sinhala Unicode, Tamil speech -> Tamil Unicode, "
+                      "never cross-script transliteration).")
 
         prompt = (
             "You are a precise speech-to-text transcriber.\n"

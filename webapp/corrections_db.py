@@ -296,6 +296,21 @@ class CorrectionsDB:
             self._conn.commit()
             return True
 
+    def retag_lang(self, correction_id, lang):
+        """Update just the `lang` tag of an existing correction. Maintenance
+        use — e.g. reclassifying rows that were saved before the `lang`
+        column existed and got blanket-defaulted to 'si' by the migration."""
+        lang = (lang or "si").strip().lower()
+        if lang not in ("si", "ta", "en"):
+            return False
+        with self.lock:
+            cur = self._conn.execute(
+                "UPDATE corrections SET lang=? WHERE id=?", (lang, correction_id))
+            if cur.rowcount:
+                self._set_meta("last_updated", datetime.now().isoformat())
+                self._conn.commit()
+            return cur.rowcount > 0
+
     def delete(self, correction_id):
         with self.lock:
             cur = self._conn.execute(
