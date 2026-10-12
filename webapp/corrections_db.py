@@ -228,6 +228,10 @@ class CorrectionsDB:
     def record_correction(self, wrong, correct, error_type="spelling",
                           context="", added_by="unknown", source="manual",
                           precheck_threshold=5, lang="si"):
+        """Record a human-verified correction. `precheck_threshold` is kept
+        for call-site backward compatibility but no longer gates anything —
+        every new correction is trusted (mode='precheck') immediately; see
+        the comment in the "added" branch below for why."""
         wrong = self._norm(wrong)
         correct = self._norm(correct)
         lang = (lang or "si").strip().lower()
@@ -244,23 +248,40 @@ class CorrectionsDB:
                 new_count = existing["count"] + 1
                 base_conf = existing["confidence"] if existing["confidence"] is not None else 0.75
                 new_conf = min(0.99, base_conf + 0.05)
-                new_mode = existing["mode"]
-                if new_count >= precheck_threshold and existing["confirmed"]:
-                    new_mode = "precheck"
+                # Respect an admin's explicit "disabled" — never silently re-enable
+                # a correction they turned off. Otherwise, a correction that is
+                # seen again is reinforced, not weakened: trust it immediately
+                # (see the "added" branch below for why this is safe here).
+                if existing["mode"] == "disabled":
+                    new_mode, new_confirmed = "disabled", existing["confirmed"]
+                else:
+                    new_mode, new_confirmed = "precheck", 1
                 self._conn.execute(
                     "UPDATE corrections SET count=?, last_seen=?, correct=?, "
-                    "confidence=?, mode=? WHERE id=?",
-                    (new_count, now, correct, new_conf, new_mode, existing["id"]))
+                    "confidence=?, mode=?, confirmed=? WHERE id=?",
+                    (new_count, now, correct, new_conf, new_mode, new_confirmed, existing["id"]))
                 status = "updated"
             else:
                 new_id = self._next_id()
+                # Trust a freshly-saved correction immediately: it reached here
+                # only after an authenticated user reviewed an explicit
+                # wrong -> correct pair and confirmed it in the "Save my
+                # corrections" dialog (or an admin typed it directly), so it
+                # goes straight to `precheck` — the deterministic, guaranteed
+                # fix applied to every future proofread of that text, rather
+                # than sitting as a soft few-shot hint until it happens to
+                # recur `precheck_threshold` times AND an admin separately
+                # confirms it (which, in practice, almost never happened —
+                # saved corrections looked like they were "not applied").
+                # A bad save is still recoverable: the admin panel can Disable
+                # or Delete any entry after the fact.
                 self._conn.execute(
                     "INSERT INTO corrections "
                     "(id,wrong,correct,type,lang,count,confidence,mode,context,"
                     "added_by,source,confirmed,added_date,last_seen) "
                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (new_id, wrong, correct, error_type, lang, 1, 0.75, "inject_only",
-                     context, added_by, source, 0, now, now))
+                    (new_id, wrong, correct, error_type, lang, 1, 0.75, "precheck",
+                     context, added_by, source, 1, now, now))
                 status = "added"
             self._set_meta("last_updated", now)
             self._conn.commit()

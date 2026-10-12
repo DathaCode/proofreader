@@ -215,6 +215,35 @@
     }
   };
 
+  // Word-level alignment diff (longest-common-subsequence backtrack). Finds
+  // the actual substituted/inserted/deleted spans between two word arrays —
+  // unlike comparing word[i] to word[i], this stays correct once the word
+  // counts differ (adding, removing, or merging a word no longer misaligns
+  // every word that follows it). Capped so a very long paste can't hang the
+  // tab: a*b cells, so ~650x650 words is the worst case at this cap.
+  function diffWordSpans(a, b) {
+    const n = a.length, m = b.length;
+    if (n * m > 400000) return null; // signal "too large to diff precisely"
+    const dp = new Array(n + 1);
+    for (let i = 0; i <= n; i++) dp[i] = new Int32Array(m + 1);
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    const spans = [];
+    let i = 0, j = 0, gapOi = 0, gapNj = 0;
+    const flush = (oi, nj) => { if (oi > gapOi || nj > gapNj) spans.push({ os: gapOi, oe: oi, ns: gapNj, ne: nj }); };
+    while (i < n && j < m) {
+      if (a[i] === b[j]) {
+        flush(i, j);
+        i++; j++; gapOi = i; gapNj = j;
+      } else if (dp[i + 1][j] >= dp[i][j + 1]) { i++; } else { j++; }
+    }
+    flush(n, m);
+    return spans;
+  }
+
   window.saveCorrections = async function () {
     const edited = corrected.value.trim();
     if (!edited) { toast(window.t("save_nothing"), "err"); return; }
@@ -222,13 +251,20 @@
 
     const origWords = lastCorrectedText.trim().split(/\s+/);
     const newWords = edited.split(/\s+/);
-    const corrections = [];
-    const n = Math.min(origWords.length, newWords.length);
-    for (let i = 0; i < n; i++) {
-      if (origWords[i] !== newWords[i]) {
-        corrections.push({ wrong: origWords[i], correct: newWords[i], type: "spelling" });
-      }
-    }
+    const spans = diffWordSpans(origWords, newWords);
+    if (spans === null) { toast(window.t("save_too_long"), "err"); return; }
+
+    // Only a true substitution (words on both sides) is a usable wrong->correct
+    // pair — a pure insertion (os===oe) has nothing to call "wrong", and a pure
+    // deletion (ns===ne) has nothing to call "correct"; the backend requires
+    // both non-empty too, so skip those rather than save a bogus pair.
+    const corrections = spans
+      .filter((s) => s.oe > s.os && s.ne > s.ns)
+      .map((s) => ({
+        wrong: origWords.slice(s.os, s.oe).join(" "),
+        correct: newWords.slice(s.ns, s.ne).join(" "),
+        type: "spelling",
+      }));
     if (!corrections.length) { toast(window.t("no_changes"), ""); return; }
     const preview = corrections.slice(0, 5).map((c) => `${c.wrong} → ${c.correct}`).join("\n");
     if (!confirm(window.t("confirm_save", corrections.length) + "\n\n" + preview +
