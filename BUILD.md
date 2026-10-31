@@ -5,7 +5,7 @@ database. Two connection modes: **Direct** (Gemini API key on the PC) and
 **LAN Proxy** (via a Control PC — see `DEPLOYMENT.md` / `proxy_server/`).
 Modern UI with dark + light themes and English/Sinhala switching.
 
-Python 3.9+ (3.14 OK) · Windows 10/11 64-bit. Current version: **4.3.0**.
+Python 3.9+ (3.14 OK) · Windows 10/11 64-bit. Current version: **5.0.0**.
 
 ## 1. Install dependencies
 ```powershell
@@ -17,12 +17,17 @@ pip install -r requirements.txt
 python main.py
 ```
 - Settings (top-right ⚙️) holds the API key, connection mode, model, theme and UI language.
-- Shortcuts: **Ctrl+Enter** = check, **Ctrl+L** = clear.
-- The corrected text opens in its own window; Input and Results split the main window 50/50.
+- Shortcuts: **Ctrl+Enter** = check, **Ctrl+Shift+C** = copy corrected, **Ctrl+L** = clear,
+  **Ctrl+= / Ctrl+-** = text size, **Ctrl+Shift+H** = history.
+- Layout (v5): your text (left) · Highlighted / Corrected tabs (right) · Issues list with
+  Accept / Ignore (bottom). Accepting an issue edits the text instantly (no new API call).
+- Editors are `gui/widgets.py:SinhalaText` (plain `tk.Text` + invisible segment tags):
+  Tk wraps long Sinhala lines in O(n^2) otherwise — see the note in that file.
 
 ## 3. Run tests (no key / no internet needed)
 ```powershell
 $env:PYTHONUTF8=1; python tests/test_app.py      # engine + orchestrator + corrections DB
+$env:PYTHONUTF8=1; python tests/test_v5.py       # v5: proxy chunking, usage store, client UI helpers
 $env:PYTHONUTF8=1; python tests/test_engine.py   # LIVE Gemini (skips if no key)
 ```
 

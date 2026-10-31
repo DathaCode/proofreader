@@ -3,9 +3,9 @@
 backup_db.py — nightly backup of the Control PC DB files to Amazon S3.
 
 What it does (Windows, no extra pip packages — stdlib only + AWS CLI):
-  1. Takes a CONSISTENT snapshot of data/corrections.db using SQLite's online
-     backup API (safe even while the proxy has the DB open).
-  2. Stages that snapshot + usage_log.csv (+ proxy_config.json) — NEVER the
+  1. Takes CONSISTENT snapshots of data/corrections.db and data/usage.db using
+     SQLite's online backup API (safe even while the proxy has them open).
+  2. Stages those snapshots + usage_log.csv (+ proxy_config.json) — NEVER the
      api_key.txt secret.
   3. Uploads the staging folder to  s3://<bucket>/<prefix>/<YYYY-MM-DD>/
      using the AWS CLI (`aws s3 cp --recursive`).
@@ -30,7 +30,8 @@ LOG_PATH = os.path.join(BASE_DIR, "backup.log")
 STAGING_DIR = os.path.join(BASE_DIR, "_backup_staging")
 
 CORRECTIONS_DB = os.path.join(DATA_DIR, "corrections.db")
-USAGE_LOG = os.path.join(DATA_DIR, "usage_log.csv")
+USAGE_DB = os.path.join(DATA_DIR, "usage.db")            # v5+: usage logs + client names
+USAGE_LOG = os.path.join(DATA_DIR, "usage_log.csv")      # v4 log (kept if present)
 PROXY_CONFIG = os.path.join(BASE_DIR, "proxy_config.json")
 
 PLACEHOLDER = "REPLACE_WITH_YOUR_BUCKET"
@@ -102,6 +103,10 @@ def stage_files(cfg):
         staged.append("corrections.db")
     else:
         log("WARNING: corrections.db not found (nothing learned yet?)")
+
+    if os.path.exists(USAGE_DB):
+        snapshot_sqlite(USAGE_DB, os.path.join(STAGING_DIR, "usage.db"))
+        staged.append("usage.db")
 
     if os.path.exists(USAGE_LOG):
         shutil.copy2(USAGE_LOG, os.path.join(STAGING_DIR, "usage_log.csv"))

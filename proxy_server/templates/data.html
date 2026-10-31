@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, cost_cell with context %}
+{% block title %}Data &amp; Merge{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Data &amp; Merge</h1>
+    <p>Combine the logs of both Control PCs, share client names, and back up data</p></div>
+</div>
+
+<div class="alert info">{{ icon('merge') }}<div>
+  <b>Combining both Control PCs:</b> on the <i>other</i> Control PC, open <b>Logs → Export these rows (CSV)</b> with period <i>All time</i>, and
+  <b>Data &amp; Merge → Export client names</b>. Import both files here. Requests are matched exactly, so importing the same file twice — or files that
+  share old history — never creates duplicates. Then use <b>Reports</b> with “All servers” for one combined report.
+</div></div>
+
+<div class="grid grid-2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>What is in this database</h2><p>{{ total_rows|num }} requests · {{ clients }} clients</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Control PC</th><th class="num">Requests</th><th class="num">Words</th><th class="num">Est. cost</th></tr></thead>
+        <tbody>
+        {% for s, t in servers %}
+          <tr><td>{{ s }}{% if s == this_server %} <span class="badge ok">this PC</span>{% endif %}</td>
+              <td class="num">{{ t.requests|num }}</td><td class="num">{{ t.words|num }}</td><td class="num">{{ cost_cell(t) }}</td></tr>
+        {% else %}
+          <tr><td colspan="4"><div class="empty">No requests logged yet.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if legacy %}<div class="card-body muted small">Old usage_log.csv was imported on first start: {{ legacy }}.</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Export</h2><p>Download data from this Control PC</p></div></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <a class="btn ghost" href="{{ url_for('admin.logs_export', period='all') }}">{{ icon('download') }} All usage logs (CSV)</a>
+      <a class="btn ghost" href="{{ url_for('admin.data_export_clients') }}">{{ icon('download') }} Client names (JSON)</a>
+      <a class="btn ghost" href="{{ url_for('admin.export') }}">{{ icon('download') }} Learned corrections (JSON)</a>
+      <span class="muted small">Nightly S3 backups (BACKUP_S3.bat) include usage.db automatically.</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>Import usage logs</h2><p>From the other Control PC</p></div></div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('admin.data_import_usage') }}" enctype="multipart/form-data">
+        <div class="form-grid" style="grid-template-columns:1fr">
+          <label class="field">CSV file <input type="file" name="file" accept=".csv" required>
+            <span class="hint">A usage CSV exported from the Logs page, or an old <code>usage_log.csv</code> from a v4 server.</span></label>
+          <label class="field">Control PC name (needed for an old usage_log.csv)
+            <input name="server" placeholder="e.g. Control PC .102">
+            <span class="hint">New-format exports already contain the server name; this is ignored for them.</span></label>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">{{ icon('upload') }} Import logs</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Import client names</h2><p>Name your PCs once, then copy the names to the other Control PC</p></div></div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('admin.data_import_clients') }}" enctype="multipart/form-data">
+        <div class="form-grid" style="grid-template-columns:1fr">
+          <label class="field">client_names.json <input type="file" name="file" accept=".json" required></label>
+          <label class="check"><input type="checkbox" name="overwrite" checked> <span>Replace names already set here</span></label>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">{{ icon('upload') }} Import names</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div><h2>Fix the Control PC label on old rows</h2>
+    <p>If this PC's data folder was copied from the other Control PC, its old history is labelled as this PC. Move it to the right name.</p></div></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.data_relabel') }}" data-confirm="Relabel these rows? You can relabel back the same way.">
+      <div class="form-grid">
+        <label class="field">Rows currently labelled
+          <select name="old_server" required>{% for s, t in servers %}<option value="{{ s }}">{{ s }} ({{ t.requests|num }})</option>{% endfor %}</select></label>
+        <label class="field">Change label to <input name="new_server" placeholder="e.g. Control PC .102" required></label>
+        <label class="field">Only rows up to and including <input type="date" name="until_day">
+          <span class="hint">The day the data folder was copied. Blank = all rows.</span></label>
+      </div>
+      <div class="form-actions"><button class="btn ghost" type="submit">{{ icon('refresh') }} Relabel rows</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

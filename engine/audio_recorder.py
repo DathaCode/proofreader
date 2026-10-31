@@ -10,6 +10,7 @@ Fallback: legacy winmm/MCI (only if sounddevice is unavailable) — kept for
 completeness, though MCI's waveaudio often fails on Windows 10/11.
 """
 
+import array as _array
 import os
 import wave
 import tempfile
@@ -55,6 +56,7 @@ class MicRecorder:
         self._frames = []
         self._stream = None
         self._rate = RATE
+        self.level = 0.0          # live input level 0..1 (for the UI meter)
 
     @property
     def is_recording(self):
@@ -80,6 +82,7 @@ class MicRecorder:
         if not self._recording:
             return None
         self._recording = False
+        self.level = 0.0
         if HAVE_SD and self._stream is not None:
             return self._stop_sd()
         if HAVE_MCI:
@@ -98,7 +101,16 @@ class MicRecorder:
 
         def _cb(indata, frames, time_info, status):
             # indata is a raw cffi buffer (int16 bytes) because dtype='int16'
-            self._frames.append(bytes(indata))
+            raw = bytes(indata)
+            self._frames.append(raw)
+            # Cheap peak level for the UI meter (every 8th sample is plenty).
+            try:
+                a = _array.array("h")
+                a.frombytes(raw[: len(raw) - (len(raw) % 2)])
+                peak = max((abs(x) for x in a[::8]), default=0)
+                self.level = min(1.0, peak / 12000.0)
+            except Exception:
+                pass
 
         # Try, in order of robustness:
         #   1) PortAudio's OWN default input (device=None) at 16 kHz, then native.

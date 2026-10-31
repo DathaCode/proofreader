@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, money, cost_cell, status_badge, filter_bar, pager with context %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Logs</h1>
+    <p>Every proofread and voice request · {{ label }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" href="{{ url_for('admin.logs_export', **qs(page=None)) }}">{{ icon('download') }} Export these rows (CSV)</a>
+  </div>
+</div>
+
+<div class="card">
+  {{ filter_bar('admin.logs', period, f, servers, months, client_list, show_status=True) }}
+  <div class="filter-summary">
+    <span><b>{{ totals.requests|num }}</b> requests</span>
+    <span><b>{{ totals.words|num }}</b> words</span>
+    <span><b>{{ totals.errors|num }}</b> errors found</span>
+    <span><b>{{ totals.failures|num }}</b> failed ({{ '%.1f'|format(totals.failure_rate) }}%)</span>
+    <span>avg <b>{{ totals.avg_latency|ms }}</b></span>
+    <span>est. cost <b>{{ cost_cell(totals) }}</b></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          {% if servers|length > 1 %}<th>Control PC</th>{% endif %}
+          <th>Client</th>
+          <th>Status</th>
+          <th class="num">Words</th>
+          <th class="num">Errors</th>
+          <th class="num" title="Fixed instantly from the learned corrections list">Auto-fixed</th>
+          <th class="num" title="Long texts are split into parts checked in parallel">Parts</th>
+          <th class="num">Time taken</th>
+          <th class="num" title="Input + output tokens reported by Gemini">Tokens</th>
+          <th class="num">Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="nowrap">{{ r.ts|dt }}</td>
+          {% if servers|length > 1 %}<td class="nowrap">{{ r.server }}</td>{% endif %}
+          <td class="client-cell">
+            <a class="client-name" href="{{ url_for('admin.client_detail', ip=r.client_ip) }}">{{ r.client_name or r.hostname or r.client_ip }}</a>
+            {% if r.client_name or r.hostname %}<div class="client-sub mono">{{ r.client_ip }}</div>{% endif %}
+          </td>
+          <td>{{ status_badge(r.status) }}</td>
+          <td class="num">{{ r.words|num }}</td>
+          <td class="num">{{ r.errors_found }}</td>
+          <td class="num">{{ r.pre_fixed or '' }}</td>
+          <td class="num">{{ r.chunks if r.chunks > 1 else '' }}</td>
+          <td class="num">{{ r.latency_ms|ms }}</td>
+          <td class="num">{% if r.in_tokens is not none %}{{ ((r.in_tokens or 0) + (r.audio_tokens or 0) + (r.out_tokens or 0))|num }}{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td class="num">{% if r.cost_usd is not none %}{{ r.cost_usd|money }}{% else %}<span class="muted" title="Logged before token tracking (v4)">—</span>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="11"><div class="empty">{{ icon('inbox') }}No requests match these filters.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ pager('admin.logs', page, pages, total, 'requests') }}
+</div>
+{% endblock %}

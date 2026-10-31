@@ -116,14 +116,33 @@ class SinhalaProofreader:
         except GeminiError as exc:
             return False, exc.message_si + "  /  " + exc.message_en
 
+    def heartbeat(self):
+        """LAN mode: ping the Control PC (marks this PC online in the admin panel).
+
+        Returns (ok, info) — info is the proxy's /status dict, or an error string.
+        In direct mode returns (True, {}) without any network call."""
+        self._refresh_engine()
+        if self.mode != "lan_proxy":
+            return True, {}
+        try:
+            return True, self.engine.status(heartbeat=True)
+        except Exception as exc:
+            return False, str(exc)[:160]
+
+    @property
+    def max_words(self):
+        """Word limit per check (LAN: told by the proxy). None = no limit."""
+        return getattr(self.engine, "max_words", None) if self.mode == "lan_proxy" else None
+
     def sync_corrections_from_proxy(self):
         """Pull the corrections DB from the Control PC on startup (LAN mode)."""
         if self.mode != "lan_proxy":
             return
         try:
             import requests
+            from .lan_proxy_engine import client_headers
             proxy_url = self.engine.proxy_url
-            r = requests.get(proxy_url + "/corrections", timeout=5)
+            r = requests.get(proxy_url + "/corrections", timeout=5, headers=client_headers())
             if r.status_code == 200:
                 # Mirror the proxy's authoritative store into our local SQLite
                 # DB (in place — no file surgery, no connection churn).

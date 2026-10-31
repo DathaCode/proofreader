@@ -8,7 +8,8 @@ any past day.
 
 WHAT GETS BACKED UP (from proxy_server\)
   - data\corrections.db     <- the central self-learning DB (consistent snapshot)
-  - data\usage_log.csv      <- request/usage log
+  - data\usage.db           <- usage logs, client names, costs (v5+, consistent snapshot)
+  - data\usage_log.csv      <- old v4 request log (only if it still exists)
   - proxy_config.json       <- server settings   (set include_proxy_config=false to skip)
   NOT api_key.txt           <- the Gemini key is a SECRET and is never uploaded.
 
@@ -55,7 +56,7 @@ RESTORE A BACKUP
 1. Stop the proxy:            STOP_PROXY.bat
 2. Download the day you want:
       aws s3 cp s3://<bucket>/<prefix>/2026-09-01/corrections.db data\corrections.db
-      aws s3 cp s3://<bucket>/<prefix>/2026-09-01/usage_log.csv  data\usage_log.csv
+      aws s3 cp s3://<bucket>/<prefix>/2026-09-01/usage.db       data\usage.db
 3. Start the proxy again:     START_PROXY.bat
 
 --------------------------------------------------------------

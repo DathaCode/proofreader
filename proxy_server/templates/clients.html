@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, money, cost_cell with context %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Clients</h1>
+    <p>{{ rows|length }} PCs · <b>{{ online_count }}</b> online now{% if unnamed %} · {{ unnamed }} not named yet{% endif %}</p>
+  </div>
+  <form class="actions" method="get">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search name, PC, user or IP" style="width:260px">
+    <button class="btn ghost" type="submit">{{ icon('search') }} Search</button>
+  </form>
+</div>
+
+{% if unnamed %}
+<div class="alert info">{{ icon('edit') }}<div>Give each PC a name (for example <b>Kamal – Editorial desk 3</b>). Names appear in logs, reports and charts instead of IP addresses. Client IPs are fixed, so a name stays with its PC.</div></div>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:28px"></th>
+          <th>Name</th>
+          <th class="nowrap">PC / User</th>
+          <th>IP</th>
+          <th>App</th>
+          <th class="nowrap">Last contact</th>
+          <th class="num">Today</th>
+          <th class="num">This month</th>
+          <th class="num">Month words</th>
+          <th class="num">Month cost</th>
+          <th class="num">All time</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in rows %}
+        <tr>
+          <td><span class="dot {{ 'on' if c.online }}" title="{{ 'Online' if c.online else 'Offline' }}"></span></td>
+          <td>
+            <form class="rename" method="post" action="{{ url_for('admin.clients_rename') }}">
+              <input type="hidden" name="ip" value="{{ c.ip }}">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
+              <input name="name" value="{{ c.name }}" placeholder="{{ c.hostname or 'Name this PC' }}" maxlength="60" aria-label="Name for {{ c.ip }}">
+              <button class="btn ghost icon" type="submit" title="Save name">{{ icon('check') }}</button>
+            </form>
+          </td>
+          <td>
+            <div class="nowrap">{{ c.hostname or '—' }}</div>
+            {% if c.username %}<div class="client-sub">{{ c.username }}</div>{% endif %}
+          </td>
+          <td class="mono">{{ c.ip }}</td>
+          <td>
+            {% if c.app_version %}
+              <span class="badge {{ 'warn' if c.outdated }}" title="{{ 'Older than the latest version ' ~ latest if c.outdated }}">v{{ c.app_version }}{% if c.outdated %} · update{% endif %}</span>
+            {% else %}<span class="muted small" title="Clients before v5 do not report a version">old app</span>{% endif %}
+          </td>
+          <td class="nowrap">{{ c.last_contact|ago }}</td>
+          <td class="num">{{ (c.today.requests if c.today else 0)|num }}</td>
+          <td class="num">{{ (c.month.requests if c.month else 0)|num }}</td>
+          <td class="num">{{ (c.month.words if c.month else 0)|num }}</td>
+          <td class="num">{% if c.month %}{{ cost_cell(c.month) }}{% else %}$0{% endif %}</td>
+          <td class="num"><a href="{{ url_for('admin.client_detail', ip=c.ip) }}">{{ (c.all.requests if c.all else 0)|num }} →</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="11"><div class="empty">{{ icon('users') }}{% if q %}No client matches “{{ q }}”.{% else %}No client has connected yet.{% endif %}</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="muted small">Online = the client app was open in the last 5 minutes (v5 apps check in every 30 s; older apps only show when they proofread). PC names come from the client app, or from the network for older apps.</p>
+{% endblock %}

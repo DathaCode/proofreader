@@ -17,6 +17,7 @@ proxy needs:
 
     * list_models()      -> [model ids that support generateContent]
     * generate_content() -> str (the model's text reply)
+    * generate_content_ex() / transcribe_audio_ex() -> (text, token usage)
     * test()             -> (ok: bool, message: str)
 """
 
@@ -81,6 +82,10 @@ class GeminiRest:
     # ----- generation ----------------------------------------------------
     def generate_content(self, prompt, temperature=0.05, json_mode=True):
         """Call <model>:generateContent and return the candidate text."""
+        return self.generate_content_ex(prompt, temperature, json_mode)[0]
+
+    def generate_content_ex(self, prompt, temperature=0.05, json_mode=True):
+        """Like generate_content, but returns (text, usage) — see _usage()."""
         if not self.api_key:
             raise GeminiRestError("No API key set")
         url = "%s/models/%s:generateContent?key=%s" % (API_ROOT, self.model, self.api_key)
@@ -97,11 +102,16 @@ class GeminiRest:
             raise GeminiRestError("Network error: %s" % e, detail=str(e))
         if r.status_code != 200:
             raise _http_error(r)
-        return _extract_text(r.json())
+        data = r.json()
+        return _extract_text(data), _usage(data, self.model)
 
     # ----- transcription (voice typing) ---------------------------------
     def transcribe_audio(self, audio_bytes, mime="audio/wav"):
         """Send inline audio to <model>:generateContent and return the text."""
+        return self.transcribe_audio_ex(audio_bytes, mime)[0]
+
+    def transcribe_audio_ex(self, audio_bytes, mime="audio/wav"):
+        """Like transcribe_audio, but returns (text, usage)."""
         if not self.api_key:
             raise GeminiRestError("No API key set")
         url = "%s/models/%s:generateContent?key=%s" % (API_ROOT, self.model, self.api_key)
@@ -119,10 +129,12 @@ class GeminiRest:
             raise GeminiRestError("Network error: %s" % e, detail=str(e))
         if r.status_code != 200:
             raise _http_error(r)
+        data = r.json()
         try:
-            return _extract_text(r.json()).strip()
+            return _extract_text(data).strip(), _usage(data, self.model)
         except GeminiRestError:
-            return ""  # no speech / empty -> empty string, not an error
+            # no speech / empty -> empty string, not an error
+            return "", _usage(data, self.model)
 
     # ----- diagnostics ---------------------------------------------------
     def test(self):
@@ -135,6 +147,23 @@ class GeminiRest:
 
 
 # ----- helpers -----------------------------------------------------------
+def _usage(data, model):
+    """Billable token counts from a generateContent response.
+
+    in    = prompt tokens that are NOT audio (text / system prompt / injections)
+    audio = audio prompt tokens (voice typing; billed at a different rate)
+    out   = candidates + thinking tokens (both billed as output)
+    """
+    um = data.get("usageMetadata") or {}
+    prompt = int(um.get("promptTokenCount") or 0)
+    audio = 0
+    for d in (um.get("promptTokensDetails") or []):
+        if isinstance(d, dict) and str(d.get("modality", "")).upper() == "AUDIO":
+            audio += int(d.get("tokenCount") or 0)
+    out = int(um.get("candidatesTokenCount") or 0) + int(um.get("thoughtsTokenCount") or 0)
+    return {"model": model, "in": max(0, prompt - audio), "audio": audio, "out": out}
+
+
 def _short_name(name):
     name = (name or "").strip()
     if name.startswith("models/"):

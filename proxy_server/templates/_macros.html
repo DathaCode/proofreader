@@ -1,0 +1,85 @@
+{% macro icon(name) -%}
+<svg class="i" aria-hidden="true"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+
+{# Trend chip. `t` = (delta_pct, "up"|"down"|"flat") or None. cost=True inverts colours. #}
+{% macro trend(t, cost=False) -%}
+{% if t %}<span class="trend {{ t[1] }}{{ ' cost' if cost }}">{{ '▲' if t[1] == 'up' else '▼' if t[1] == 'down' else '•' }} {{ '%.0f'|format(t[0]|abs) }}%</span>{% endif %}
+{%- endmacro %}
+
+{% macro money(usd, est=False) -%}
+{{ usd|money(est) }}{% if lkr_on %} <span class="muted small">{{ usd|lkr }}</span>{% endif %}
+{%- endmacro %}
+
+{# Cost cell with an explanation when part of it is estimated / unknown. #}
+{% macro cost_cell(r) -%}
+<span title="{% if r.cost_has_est %}Includes {{ r.cost_est|money }} estimated for older requests that have no token data. {% endif %}{% if r.cost_unknown %}Some older requests could not be estimated yet.{% endif %}">{{ money(r.cost_total, r.cost_has_est) }}</span>
+{%- endmacro %}
+
+{% macro status_badge(s) -%}
+<span class="badge {{ s }}">{{ {'ok': 'OK', 'error': 'Failed', 'voice': 'Voice', 'voice_error': 'Voice failed'}.get(s, s) }}</span>
+{%- endmacro %}
+
+{# Period segmented control + custom range / month / server / client selectors. #}
+{% macro filter_bar(endpoint, period, f, servers, months, client_list, show_client=True, show_status=False) %}
+<form class="filters" method="get" action="{{ url_for(endpoint) }}">
+  <label class="field">Period
+    <div class="seg">
+      {% for key, label in periods %}
+      <a class="{{ 'on' if period == key }}" href="{{ url_for(endpoint, **qs(period=key, month=None, date_from=None, date_to=None, page=None)) }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </label>
+  <label class="field">Month
+    <select name="month" data-autosubmit>
+      <option value="">—</option>
+      {% for m in months %}<option value="{{ m }}" {{ 'selected' if f.month == m }}>{{ m }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field">From <input type="date" name="date_from" value="{{ f.date_from if period == 'custom' and not f.month else '' }}"></label>
+  <label class="field">To <input type="date" name="date_to" value="{{ f.date_to if period == 'custom' and not f.month else '' }}"></label>
+  {% if servers|length > 1 or f.server %}
+  <label class="field">Control PC
+    <select name="server" data-autosubmit>
+      <option value="">All servers</option>
+      {% for s in servers %}<option value="{{ s }}" {{ 'selected' if f.server == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if show_client %}
+  <label class="field">Client
+    <select name="client" data-autosubmit>
+      <option value="">All clients</option>
+      {% for c in client_list %}<option value="{{ c.ip }}" {{ 'selected' if f.client == c.ip }}>{{ c.display }}{% if c.name %} ({{ c.ip }}){% endif %}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  {% if show_status %}
+  <label class="field">Status
+    <select name="status" data-autosubmit>
+      <option value="">Any</option>
+      {% for k, l in [('ok','OK'),('failed','Failed'),('voice','Voice'),('error','Proofread failed'),('voice_error','Voice failed')] %}
+      <option value="{{ k }}" {{ 'selected' if f.status == k }}>{{ l }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <button class="btn ghost" type="submit">{{ icon('search') }} Apply</button>
+  {% if request.args %}<a class="btn ghost" href="{{ url_for(endpoint) }}">Reset</a>{% endif %}
+</form>
+{% endmacro %}
+
+{% macro pager(endpoint, page, pages, total, noun="rows") %}
+<div class="pager">
+  <span>{{ total|num }} {{ noun }} · page {{ page }} of {{ pages }}</span>
+  <div class="pages">
+    {% if page > 1 %}
+      <a class="btn ghost sm" href="{{ url_for(endpoint, **qs(page=1)) }}">« First</a>
+      <a class="btn ghost sm" href="{{ url_for(endpoint, **qs(page=page-1)) }}">‹ Prev</a>
+    {% endif %}
+    {% if page < pages %}
+      <a class="btn ghost sm" href="{{ url_for(endpoint, **qs(page=page+1)) }}">Next ›</a>
+      <a class="btn ghost sm" href="{{ url_for(endpoint, **qs(page=pages)) }}">Last »</a>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

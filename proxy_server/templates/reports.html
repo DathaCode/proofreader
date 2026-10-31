@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, money, cost_cell, filter_bar with context %}
+{% block title %}Report – {{ label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Usage report</h1>
+    <p>{{ label }} · per client, with estimated Gemini cost</p>
+  </div>
+  <div class="actions no-print">
+    <a class="btn ghost" href="{{ url_for('admin.reports_export', **qs()) }}">{{ icon('download') }} Download CSV</a>
+    <button class="btn" type="button" onclick="window.print()">{{ icon('printer') }} Print / Save PDF</button>
+  </div>
+</div>
+
+<div class="print-only" style="margin-bottom:12px">
+  <b>Sinhala Proofreader – usage report</b><br>
+  Period: {{ label }} · Generated {{ generated }} on {{ server_name }}
+</div>
+
+<div class="card no-print">
+  {{ filter_bar('admin.reports', period, f, servers, months, client_list, show_client=False) }}
+  {% if servers|length > 1 %}
+  <div class="filter-summary">{{ icon('merge') }} This database holds logs from <b>{{ servers|length }}</b> Control PCs. Leave “All servers” selected for a combined report.</div>
+  {% endif %}
+</div>
+
+<div class="kpis" style="margin-bottom:18px">
+  <div class="kpi accent"><div class="k-label">Checks</div><div class="k-value">{{ totals.requests|num }}</div>
+    <div class="k-sub">{{ totals.proofreads|num }} proofread · {{ totals.voice|num }} voice</div></div>
+  <div class="kpi"><div class="k-label">Words checked</div><div class="k-value">{{ totals.words|num }}</div>
+    <div class="k-sub">{{ rows|length }} active clients</div></div>
+  <div class="kpi"><div class="k-label">Errors found</div><div class="k-value">{{ totals.errors|num }}</div>
+    <div class="k-sub">{{ totals.pre_fixed|num }} auto-fixed</div></div>
+  <div class="kpi"><div class="k-label">Failed requests</div><div class="k-value">{{ totals.failures|num }}</div>
+    <div class="k-sub">{{ '%.1f'|format(totals.failure_rate) }}% · avg {{ totals.avg_latency|ms }}</div></div>
+  <div class="kpi"><div class="k-label">Est. Gemini cost</div><div class="k-value">{{ totals.cost_total|money(totals.cost_has_est) }}</div>
+    <div class="k-sub">{% if lkr_on %}{{ totals.cost_total|lkr }} · {% endif %}{{ (totals.in_tok + totals.out_tok)|num }} tokens</div></div>
+</div>
+
+{% if days|length > 1 %}
+<div class="card">
+  <div class="card-head"><div><h2>Day by day</h2></div>
+    <div class="legend-inline"><span><i style="background:var(--primary)"></i>Checks</span><span><i style="background:var(--warning)"></i>Est. cost</span></div></div>
+  <div class="card-body"><div class="chart sm"><canvas id="c-days"></canvas></div></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head"><div><h2>Per client</h2><p>Sorted by number of checks</p></div></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Client</th>
+          <th class="num">Checks</th><th class="num">Voice</th><th class="num">Words</th>
+          <th class="num">Errors</th><th class="num">Failed</th><th class="num">Avg time</th>
+          <th class="num">Tokens</th><th class="num">Est. cost</th><th>Share of cost</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="muted">{{ loop.index }}</td>
+          <td class="client-cell"><a class="client-name" href="{{ url_for('admin.client_detail', ip=r.ip) }}">{{ r.display }}</a><div class="client-sub mono">{{ r.ip }}</div></td>
+          <td class="num">{{ r.requests|num }}</td>
+          <td class="num">{{ r.voice|num }}</td>
+          <td class="num">{{ r.words|num }}</td>
+          <td class="num">{{ r.errors|num }}</td>
+          <td class="num">{{ r.failures|num }}</td>
+          <td class="num">{{ r.avg_latency|ms }}</td>
+          <td class="num">{{ (r.in_tok + r.out_tok)|num }}</td>
+          <td class="num">{{ cost_cell(r) }}</td>
+          <td>{% set pct = (100.0 * r.cost_total / totals.cost_total) if totals.cost_total else 0 %}
+            <div class="share"><div class="bar"><i style="width:{{ pct }}%"></i></div><span>{{ '%.0f'|format(pct) }}%</span></div></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="11"><div class="empty">{{ icon('inbox') }}No activity in this period.</div></td></tr>
+      {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr><td></td><td>Total</td>
+          <td class="num">{{ totals.requests|num }}</td><td class="num">{{ totals.voice|num }}</td>
+          <td class="num">{{ totals.words|num }}</td><td class="num">{{ totals.errors|num }}</td>
+          <td class="num">{{ totals.failures|num }}</td><td class="num">{{ totals.avg_latency|ms }}</td>
+          <td class="num">{{ (totals.in_tok + totals.out_tok)|num }}</td><td class="num">{{ cost_cell(totals) }}</td><td></td></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% if by_server|length > 1 %}
+<div class="card">
+  <div class="card-head"><div><h2>By Control PC</h2></div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Control PC</th><th class="num">Checks</th><th class="num">Words</th><th class="num">Failed</th><th class="num">Est. cost</th></tr></thead>
+      <tbody>
+      {% for s, t in by_server %}
+        <tr><td>{{ s }}</td><td class="num">{{ t.requests|num }}</td><td class="num">{{ t.words|num }}</td><td class="num">{{ t.failures|num }}</td><td class="num">{{ cost_cell(t) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<p class="muted small">
+  <b>About the cost:</b> calculated from the token counts Gemini reports for each request, priced with the table in Settings → Gemini prices (paid-tier rates; a free-tier key is not billed).
+  Amounts marked <b>~</b> include an <i>estimate</i> for older requests logged before token tracking, based on the measured cost per word of newer requests.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var C = {{ chart|tojson }};
+  PA.chart("c-days", function (p) { return {
+    data: { labels: C.labels, datasets: [
+      { type: "bar", label: "Checks", data: C.requests, backgroundColor: PA.alpha(p.primary, .85), borderRadius: 4, maxBarThickness: 22, yAxisID: "y" },
+      { type: "line", label: "Est. cost ($)", data: C.cost, borderColor: p.warning, pointRadius: 2, tension: .3, borderWidth: 2, yAxisID: "y1" } ] },
+    options: { interaction: { mode: "index", intersect: false }, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: function (ctx) { return ctx.dataset.yAxisID === "y1" ? " Cost " + PA.money(ctx.parsed.y) : " Checks " + ctx.parsed.y; } } } },
+      scales: { x: { grid: { display: false }, border: { display: false } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }),
+                y1: { position: "right", beginAtZero: true, grid: { display: false }, border: { display: false },
+                      ticks: { callback: function (v) { return PA.money(v); } } } } } }; });
+})();
+</script>
+{% endblock %}

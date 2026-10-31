@@ -18,9 +18,13 @@ proxy_server/  (runs only on the Control PC; not packaged)
 └── proxy.py (Flask)
     ├── gemini_rest.py                       Gemini over plain HTTPS REST
     ├── corrections_db.py                    identical copy of engine/corrections_db.py
-    ├── admin_panel.py (/admin)              dashboard, model dropdown, corrections, usage
-    ├── config_proxy.py · usage_logger.py
-    └── templates/  +  *.bat helpers
+    ├── admin_panel.py (/admin)              dashboard, clients, logs, reports, corrections,
+    │                                        settings, data & merge (Control PC only)
+    ├── usage_store.py                       SQLite usage log + client registry + cost (data/usage.db)
+    ├── config_proxy.py                      settings incl. Gemini price table
+    └── templates/ + static/ (Chart.js bundled)  +  *.bat helpers
+    Long text: proxy splits into ~250-word parts, checks them in parallel, returns one result
+    with start/end offsets. Clients send X-Client-Host/User/Version + a 30 s /status heartbeat.
 ```
 
 ## Connection modes

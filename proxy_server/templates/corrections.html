@@ -1,67 +1,110 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon, pager with context %}
+{% block title %}Corrections{% endblock %}
 {% block content %}
-<h1>✍️ Corrections ({{ stats.total }})</h1>
-
-<div class="card">
-  <div class="row" style="justify-content:space-between">
-    <form method="get" action="{{ url_for('admin.corrections') }}" class="row">
-      <input name="q" value="{{ q }}" placeholder="Search wrong/correct/type" style="min-width:240px">
-      <button type="submit">🔍 Search</button>
-      {% if q %}<a class="btn btn-gray" style="padding:8px 14px;border-radius:8px;text-decoration:none" href="{{ url_for('admin.corrections') }}">Clear</a>{% endif %}
+<div class="page-head">
+  <div>
+    <h1>Learned corrections</h1>
+    <p>{{ stats.total|num }} total · <b>{{ stats.precheck|num }}</b> auto-fixed instantly · {{ stats.inject|num }} used as hints for Gemini · {{ stats.confirmed|num }} confirmed</p>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" href="{{ url_for('admin.export') }}">{{ icon('download') }} Export JSON</a>
+    <form method="post" action="{{ url_for('admin.import_corrections') }}" enctype="multipart/form-data" class="actions">
+      <input type="file" name="file" accept=".json" required style="max-width:220px">
+      <button class="btn ghost" type="submit">{{ icon('upload') }} Import</button>
     </form>
-    <div class="row">
-      <a class="btn btn-gray" style="padding:8px 14px;border-radius:8px;text-decoration:none" href="{{ url_for('admin.export') }}">⬇ Export JSON</a>
-      <form method="post" action="{{ url_for('admin.import_corrections') }}" enctype="multipart/form-data" class="row">
-        <input type="file" name="file" accept=".json">
-        <button type="submit">⬆ Import</button>
-      </form>
-    </div>
   </div>
 </div>
 
 <div class="card">
-  <h2>➕ Add correction</h2>
-  <form method="post" action="{{ url_for('admin.corrections_add') }}" class="row">
-    <input name="wrong" placeholder="wrong (වැරදි)" required>
-    <input name="correct" placeholder="correct (නිවැරදි)" required>
-    <select name="type">
-      <option value="spelling">spelling</option>
-      <option value="grammar">grammar</option>
-      <option value="grammar_discord">grammar_discord</option>
-      <option value="encoding_error">encoding_error</option>
-    </select>
-    <button type="submit" class="btn-green">Add</button>
-  </form>
+  <div class="card-head"><div><h2>Add a correction</h2><p>Teach the proofreader a fix it should always apply</p></div></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.corrections_add') }}" class="form-grid" style="grid-template-columns:2fr 2fr 1fr auto;align-items:end">
+      <label class="field">Wrong <input class="si" name="wrong" placeholder="වැරදි" required></label>
+      <label class="field">Correct <input class="si" name="correct" placeholder="නිවැරදි" required></label>
+      <label class="field">Type
+        <select name="type">{% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select>
+      </label>
+      <button class="btn success" type="submit">{{ icon('check') }} Add</button>
+    </form>
+  </div>
 </div>
 
 <div class="card">
-  <table>
-    <tr><th>Wrong</th><th>Correct</th><th>Type</th><th>Count</th><th>Conf</th>
-        <th>Mode</th><th>Confirmed</th><th>Actions</th></tr>
-    {% for c in items %}
-    <tr>
-      <td>{{ c.wrong }}</td><td>{{ c.correct }}</td><td>{{ c.type }}</td>
-      <td>{{ c.count }}</td><td>{{ '%.2f'|format(c.confidence) }}</td>
-      <td><span class="pill {{ c.mode }}">{{ c.mode }}</span></td>
-      <td>{{ '✅' if c.confirmed else '—' }}</td>
-      <td>
-        {% for act,label,cls in [('precheck','⚡ Precheck','btn-green'),
-                                 ('inject_only','Inject','btn-gray'),
-                                 ('disabled','Disable','btn-gray'),
-                                 ('confirm','Confirm','btn-gray'),
-                                 ('delete','🗑','btn-red')] %}
-        <form class="inline" method="post" action="{{ url_for('admin.corrections_action') }}">
-          <input type="hidden" name="id" value="{{ c.id }}">
-          <input type="hidden" name="action" value="{{ act }}">
-          <input type="hidden" name="q" value="{{ q }}">
-          <button class="{{ cls }}" style="padding:4px 8px">{{ label }}</button>
-        </form>
-        {% endfor %}
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="8" class="muted">No corrections found.</td></tr>
-    {% endfor %}
-  </table>
+  <form class="filters" method="get">
+    <label class="field">Search <input type="search" name="q" value="{{ q }}" placeholder="wrong, correct or type"></label>
+    <label class="field">Mode
+      <select name="mode" data-autosubmit><option value="">Any</option>
+        {% for m in modes %}<option value="{{ m }}" {{ 'selected' if mode == m }}>{{ {'precheck':'Auto-fix','inject_only':'Hint only','disabled':'Disabled'}[m] }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">Type
+      <select name="type" data-autosubmit><option value="">Any</option>
+        {% for t in types %}<option value="{{ t }}" {{ 'selected' if ctype == t }}>{{ t }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">Source
+      <select name="source" data-autosubmit><option value="">Any</option>
+        {% for s in sources %}<option value="{{ s }}" {{ 'selected' if source == s }}>{{ s }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">Sort
+      <select name="sort" data-autosubmit>
+        <option value="count" {{ 'selected' if sort == 'count' }}>Most used</option>
+        <option value="recent" {{ 'selected' if sort == 'recent' }}>Recently seen</option>
+        <option value="wrong" {{ 'selected' if sort == 'wrong' }}>A–Z</option>
+      </select>
+    </label>
+    <button class="btn ghost" type="submit">{{ icon('search') }} Apply</button>
+    {% if request.args %}<a class="btn ghost" href="{{ url_for('admin.corrections') }}">Reset</a>{% endif %}
+  </form>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Wrong</th><th>Correct</th><th>Type</th><th class="num">Used</th><th class="num">Conf.</th>
+            <th>Mode</th><th>Added by</th><th>Last seen</th><th class="right">Actions</th></tr>
+      </thead>
+      <tbody>
+      {% for c in items %}
+        <tr>
+          <td class="si">{{ c.wrong }}</td>
+          <td class="si" style="color:var(--success);font-weight:600">{{ c.correct }}</td>
+          <td><span class="badge">{{ c.type }}</span></td>
+          <td class="num">{{ c.count }}</td>
+          <td class="num">{{ '%.2f'|format(c.confidence or 0) }}</td>
+          <td>
+            <span class="badge {{ c.mode }}">{{ {'precheck':'Auto-fix','inject_only':'Hint','disabled':'Disabled'}.get(c.mode, c.mode) }}</span>
+            {% if c.confirmed %}<span title="Confirmed by admin">{{ icon('check') }}</span>{% endif %}
+          </td>
+          <td class="small">{{ c.added_by_name }}<div class="client-sub">{{ c.source }}</div></td>
+          <td class="small nowrap">{{ (c.last_seen or c.added_date)|ago }}</td>
+          <td class="right nowrap">
+            {% for act, label, title in [('precheck','Auto-fix','Fix this instantly everywhere, without asking Gemini'),
+                                         ('inject_only','Hint','Only suggest it to Gemini as an example'),
+                                         ('disabled','Disable','Stop using this correction')] if c.mode != act %}
+            <form class="inline" method="post" action="{{ url_for('admin.corrections_action') }}">
+              <input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="action" value="{{ act }}">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
+              <button class="btn ghost sm" title="{{ title }}">{{ label }}</button>
+            </form>
+            {% endfor %}
+            {% if not c.confirmed %}
+            <form class="inline" method="post" action="{{ url_for('admin.corrections_action') }}">
+              <input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="action" value="confirm">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
+              <button class="btn ghost sm" title="Mark as reviewed and correct">Confirm</button>
+            </form>
+            {% endif %}
+            <form class="inline" method="post" action="{{ url_for('admin.corrections_action') }}" data-confirm="Delete the correction “{{ c.wrong }} → {{ c.correct }}”? This cannot be undone.">
+              <input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="action" value="delete">
+              <input type="hidden" name="next" value="{{ request.full_path }}">
+              <button class="btn danger-ghost icon" title="Delete">{{ icon('trash') }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9"><div class="empty">{{ icon('book') }}No corrections match.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ pager('admin.corrections', page, pages, total, 'corrections') }}
 </div>
 {% endblock %}

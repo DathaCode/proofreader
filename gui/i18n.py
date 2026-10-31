@@ -8,8 +8,8 @@ to the key itself. Used so the UI Language setting actually switches the app.
 
 STRINGS = {
     # window / header
-    "app_title":     {"en": "🔤  Sinhala Word & Grammar Checker", "si": "🔤  සිංහල වචන හා ව්‍යාකරණ පරීක්ෂකය"},
-    "app_subtitle":  {"en": "Sinhala Proofreader", "si": "සිංහල වචන පරීක්ෂකය"},
+    "app_title":     {"en": "Sinhala Proofreader", "si": "සිංහල ප්‍රතිශෝධකය"},
+    "app_subtitle":  {"en": "Spelling & grammar checker", "si": "අක්ෂර වින්‍යාස හා ව්‍යාකරණ පරීක්ෂකය"},
     "settings_btn":  {"en": "⚙️ Settings", "si": "⚙️ සැකසීම්"},
 
     # mode bar
@@ -38,6 +38,8 @@ STRINGS = {
 
     # voice typing
     "mic_btn":       {"en": "🎤 Voice", "si": "🎤 හඬ"},
+    "voice_btn":     {"en": "Voice", "si": "හඬ"},
+    "voice_busy":    {"en": "Converting…", "si": "පරිවර්තනය…"},
     "mic_stop":      {"en": "⏹ Stop", "si": "⏹ නවත්වන්න"},
     "mic_transcribing": {"en": "⏳ Converting...", "si": "⏳ පරිවර්තනය..."},
     "mic_recording": {"en": "🔴 Recording... click the mic again to stop",
@@ -105,6 +107,78 @@ STRINGS = {
     "set_theme_dark": {"en": "Dark", "si": "අඳුරු"},
     "set_theme_light": {"en": "Light", "si": "ආලෝකමත්"},
     "set_lang":      {"en": "UI Language:", "si": "අතුරුමුහුණත් භාෂාව:"},
+
+    # ===== v5 main window =====
+    "your_text":     {"en": "Your text", "si": "ඔබේ පාඨය"},
+    "paste_btn":     {"en": "Paste", "si": "අලවන්න"},
+    "clear_btn2":    {"en": "Clear", "si": "හිස් කරන්න"},
+    "check_btn2":    {"en": "Check   Ctrl+Enter", "si": "පරීක්ෂා කරන්න   Ctrl+Enter"},
+    "checking_btn2": {"en": "Checking…", "si": "පරීක්ෂා කරමින්…"},
+    "words_count":   {"en": "%s words", "si": "වචන %s"},
+    "words_limit":   {"en": "%s / %s words", "si": "වචන %s / %s"},
+    "over_limit":    {"en": "Too long: %s words (limit %s). Check it in smaller parts.",
+                      "si": "දිග වැඩියි: වචන %s (උපරිමය %s). කොටස් කර පරීක්ෂා කරන්න."},
+    "tab_highlight": {"en": "Highlighted", "si": "ඉස්මතු කළ"},
+    "tab_corrected": {"en": "Corrected", "si": "නිවැරදි කළ"},
+    "hint_highlight": {"en": "Click a highlighted word to see the fix.  Red = spelling · Amber = grammar",
+                       "si": "නිවැරදි කිරීම බැලීමට ඉස්මතු කළ වචනය ක්ලික් කරන්න.  රතු = අක්ෂර · කහ = ව්‍යාකරණ"},
+    "hint_corrected": {"en": "You can edit this text. Press “Teach” to save your own fixes for everyone.",
+                       "si": "මෙම පාඨය සංස්කරණය කළ හැක. ඔබේ නිවැරදි කිරීම් සුරැකීමට “උගන්වන්න” ඔබන්න."},
+    "copy_corrected": {"en": "Copy corrected   Ctrl+Shift+C", "si": "පිටපත් කරන්න   Ctrl+Shift+C"},
+    "use_corrected": {"en": "Use as my text", "si": "මගේ පාඨය ලෙස යොදන්න"},
+    "teach_btn":     {"en": "Teach", "si": "උගන්වන්න"},
+    "export_btn2":   {"en": "Export", "si": "අපනයනය"},
+    "issues_label":  {"en": "Issues", "si": "ගැටලු"},
+    "accept_all":    {"en": "Accept all (%d)", "si": "සියල්ල පිළිගන්න (%d)"},
+    "accept":        {"en": "Accept", "si": "පිළිගන්න"},
+    "ignore":        {"en": "Ignore", "si": "නොසලකන්න"},
+    "spelling_n":    {"en": "%d spelling", "si": "අක්ෂර %d"},
+    "grammar_n":     {"en": "%d grammar", "si": "ව්‍යාකරණ %d"},
+    "issues_start":  {"en": "Paste or type text, then press Check. Issues will be listed here.",
+                      "si": "පාඨය ඇතුළු කර පරීක්ෂා කරන්න ඔබන්න. ගැටලු මෙහි පෙන්වයි."},
+    "issues_none":   {"en": "No issues found — your text looks good.", "si": "ගැටලු හමු නොවීය — ඔබේ පාඨය හොඳයි."},
+    "issues_done":   {"en": "All issues handled.", "si": "සියලු ගැටලු විසඳා ඇත."},
+    "fixed_one":     {"en": "Fixed: %s → %s", "si": "නිවැරදි කළා: %s → %s"},
+    "ignored_one":   {"en": "Ignored: %s", "si": "නොසලකා හැරියා: %s"},
+    "accepted_all":  {"en": "Applied %d fixes to your text", "si": "නිවැරදි කිරීම් %d ක් යෙදුවා"},
+    "text_changed":  {"en": "Your text changed after the check — press Check again.",
+                      "si": "පරීක්ෂාවෙන් පසු පාඨය වෙනස් විය — නැවත පරීක්ෂා කරන්න."},
+    "checking_n":    {"en": "Checking %s words…  %ds", "si": "වචන %s පරීක්ෂා කරමින්…  තත්. %d"},
+    "checking_parts": {"en": "Checking %s words in %d parts…  %ds", "si": "වචන %s කොටස් %d කින් පරීක්ෂා කරමින්…  තත්. %d"},
+    "result_summary": {"en": "%d issue(s) in %s words · %.1f s", "si": "ගැටලු %d · වචන %s · තත්. %.1f"},
+    "chip_spelling": {"en": "Spelling", "si": "අක්ෂර"},
+    "chip_grammar":  {"en": "Grammar", "si": "ව්‍යාකරණ"},
+    "chip_encoding": {"en": "Encoding", "si": "කේතනය"},
+    "chip_learned":  {"en": "Learned", "si": "ඉගෙනගත්"},
+    "moved_to_editor": {"en": "Corrected text moved to your editor", "si": "නිවැරදි කළ පාඨය ඔබේ සංස්කාරකයට යෙදුවා"},
+    "pasted":        {"en": "Pasted from clipboard", "si": "පසුරුපුවරුවෙන් ඇලෙව්වා"},
+    "font_hint":     {"en": "Text size", "si": "අකුරු ප්‍රමාණය"},
+
+    # history
+    "history_btn":   {"en": "History", "si": "ඉතිහාසය"},
+    "history_title": {"en": "Recent checks (saved on this PC only)", "si": "මෑත පරීක්ෂා (මෙම PC එකේ පමණි)"},
+    "history_empty": {"en": "No checks yet. Your recent checks will appear here.",
+                      "si": "තවම පරීක්ෂා නැත. මෑත පරීක්ෂා මෙහි පෙන්වයි."},
+    "history_open":  {"en": "Open", "si": "විවෘත කරන්න"},
+    "history_copy":  {"en": "Copy", "si": "පිටපත්"},
+    "history_clear": {"en": "Clear all", "si": "සියල්ල මකන්න"},
+    "history_opened": {"en": "Opened a previous check", "si": "පෙර පරීක්ෂාවක් විවෘත කළා"},
+    "history_meta":  {"en": "%s · %s words · %d issue(s)", "si": "%s · වචන %s · ගැටලු %d"},
+
+    # connection
+    "conn_ok":       {"en": "Connected · %s", "si": "සම්බන්ධයි · %s"},
+    "conn_wait":     {"en": "Connecting…", "si": "සම්බන්ධ වෙමින්…"},
+    "conn_offline":  {"en": "Control PC offline", "si": "Control PC නොමැත"},
+    "conn_direct":   {"en": "Direct · %s", "si": "සෘජු · %s"},
+    "conn_nokey":    {"en": "No API key", "si": "API යතුරක් නැත"},
+    "offline_banner": {"en": "Can't reach the Control PC (%s). Retrying every 30 seconds…",
+                       "si": "Control PC (%s) වෙත සම්බන්ධ විය නොහැක. සෑම තත්පර 30 කට වරක් නැවත උත්සාහ කරයි…"},
+    "retry_now":     {"en": "Retry now", "si": "දැන් උත්සාහ කරන්න"},
+    "reconnected":   {"en": "Reconnected to the Control PC", "si": "Control PC වෙත නැවත සම්බන්ධ විය"},
+    "update_banner": {"en": "A new version (%s) of the proofreader is available. %s",
+                      "si": "ප්‍රතිශෝධකයේ නව සංස්කරණයක් (%s) ඇත. %s"},
+    "dismiss":       {"en": "Dismiss", "si": "වසන්න"},
+    "check_failed":  {"en": "Check failed: %s", "si": "පරීක්ෂාව අසාර්ථකයි: %s"},
 }
 
 

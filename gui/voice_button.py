@@ -1,174 +1,169 @@
 # -*- coding: utf-8 -*-
 """
-voice_button.py — a floating circular mic button with a pulsing glow ring.
+voice_button.py — the voice-typing button (v5).
 
-Everything is drawn on a single tk.Canvas (face circle + vector mic icon + glow),
-and the click is a plain canvas <Button-1> binding — which fires reliably (unlike
-a CTk button embedded via create_window). States: idle / recording / busy.
+A smooth pill button that sits next to "Check":
+
+    idle        [ 🎙  Voice ]                      neutral pill
+    recording   [ ■  0:07 ] ▂▅▇▃▁                  red pill + live mic-level bars
+    busy        [ 🎙  Converting… ]                 disabled
+
+Icons are drawn with Pillow at 4x and scaled down (anti-aliased) — the v4 button
+drew on a plain Tk canvas, which cannot anti-alias, so its circles looked jagged.
+The level bars follow the real microphone level (MicRecorder.level), so users can
+see that the mic is actually hearing them.
+
+Interface kept from v4: VoiceButton(master, command), set_recording(bool),
+set_busy(bool), refresh_theme(); plus retranslate().
 """
 
 import math
+import time
 import tkinter as tk
 
 import customtkinter as ctk
+from PIL import Image, ImageDraw
+
+from . import theme as TH
+
+_RED, _RED_HOVER = "#ef4444", "#dc2626"
+_LABELS = {"voice_btn": "Voice", "voice_busy": "Converting…"}
 
 
-def _rgb(widget, color):
-    r, g, b = widget.winfo_rgb(color)
-    return (r // 256, g // 256, b // 256)
+def _icon(kind, color, size=18, scale=4):
+    """Anti-aliased mic / stop icon as a PIL image."""
+    S = size * scale
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    w = max(1, int(S * 0.09))
+    if kind == "stop":
+        a, b = int(S * 0.27), int(S * 0.73)
+        d.rounded_rectangle((a, a, b, b), radius=int(S * 0.09), fill=color)
+    else:  # mic
+        d.rounded_rectangle((int(S * .35), int(S * .06), int(S * .65), int(S * .60)),
+                            radius=int(S * .15), fill=color)
+        d.arc((int(S * .20), int(S * .24), int(S * .80), int(S * .76)),
+              start=0, end=180, fill=color, width=w)
+        d.line((S // 2, int(S * .76), S // 2, int(S * .90)), fill=color, width=w)
+        d.line((int(S * .32), int(S * .91), int(S * .68), int(S * .91)), fill=color, width=w)
+    return img.resize((size, size), Image.LANCZOS)
 
 
-def _hex(rgb):
-    return "#%02x%02x%02x" % rgb
-
-
-def _blend(a, b, t):
-    return tuple(int(x + (y - x) * t) for x, y in zip(a, b))
+def _ctk_icon(kind, light, dark, size=18):
+    return ctk.CTkImage(light_image=_icon(kind, light, size), dark_image=_icon(kind, dark, size),
+                        size=(size, size))
 
 
 class VoiceButton(ctk.CTkFrame):
-    def __init__(self, master, command, size=80, glow="#ff4d4d", **kw):
-        super().__init__(master, fg_color="transparent", width=size, height=size, **kw)
+    BARS = 5
+    PROFILE = (0.55, 0.85, 1.0, 0.8, 0.5)     # middle bars move most
+
+    def __init__(self, master, command, level_fn=None, t=None, height=42, **kw):
+        super().__init__(master, fg_color="transparent", **kw)
         self.command = command
-        self.size = size
-        self.glow = glow
-        self._mode = "idle"      # idle | recording | busy
-        self._hover = False
-        self._anim = None
+        self.level_fn = level_fn or (lambda: 0.0)
+        self._t = t or (lambda key, *a: _LABELS.get(key, key))
+        self._mode = "idle"                    # idle | recording | busy
+        self._started = 0.0
+        self._job = None
+        self._levels = [0.0] * self.BARS
         self._phase = 0.0
 
-        self._bg = self._textbox_bg()
-        self.canvas = tk.Canvas(self, width=size, height=size, bg=self._bg,
-                                highlightthickness=0, bd=0, cursor="hand2")
-        self.canvas.pack()
-        self.canvas.bind("<Button-1>", self._on_click)
-        self.canvas.bind("<Enter>", self._on_enter)
-        self.canvas.bind("<Leave>", self._on_leave)
+        self._img_mic = _ctk_icon("mic", "#1f2733", "#e8edf4")
+        self._img_mic_muted = _ctk_icon("mic", "#8a94a6", "#7d889a")
+        self._img_stop = _ctk_icon("stop", "#ffffff", "#ffffff")
 
-        self._bg_rgb = _rgb(self.canvas, self._bg)
-        self._glow_rgb = _rgb(self.canvas, self.glow)
-        self._render()
+        self.btn = ctk.CTkButton(self, text="", height=height, corner_radius=height // 2,
+                                 width=118, compound="left", border_spacing=10,
+                                 command=self._clicked)
+        self.btn.pack(side="left")
+        self.meter = tk.Canvas(self, width=self.BARS * 8, height=26, highlightthickness=0, bd=0)
+        self.refresh_theme()
 
-    # ----- theme ---------------------------------------------------------
-    @staticmethod
-    def _textbox_bg():
-        try:
-            col = ctk.ThemeManager.theme["CTkTextbox"]["fg_color"]
-            return col[0] if ctk.get_appearance_mode() == "Light" else col[1]
-        except Exception:
-            return "#1a1f28" if ctk.get_appearance_mode() == "Dark" else "#ffffff"
-
-    def refresh_theme(self):
-        self._bg = self._textbox_bg()
-        self._bg_rgb = _rgb(self.canvas, self._bg)
-        self._glow_rgb = _rgb(self.canvas, self.glow)
-        self.canvas.configure(bg=self._bg)
-        self._render()
-
-    # ----- events --------------------------------------------------------
-    def _on_click(self, _e=None):
-        if self._mode != "busy" and self.command:
-            self.command()
-
-    def _on_enter(self, _e=None):
-        self._hover = True
-        self._render()
-
-    def _on_leave(self, _e=None):
-        self._hover = False
-        self._render()
-
-    # ----- states --------------------------------------------------------
+    # ----- public --------------------------------------------------------
     def set_recording(self, on):
-        self._mode = "recording" if on else "idle"
         if on:
-            self._start_anim()
+            self._mode = "recording"
+            self._started = time.time()
+            self._levels = [0.0] * self.BARS
+            self.meter.pack(side="left", padx=(10, 0))
+            self._tick()
         else:
-            self._stop_anim()
+            self._mode = "idle"
+            self._stop()
         self._render()
 
     def set_busy(self, on):
-        if on:
-            self._mode = "busy"
-            self._stop_anim()
-        else:
-            self._mode = "idle"
+        self._mode = "busy" if on else "idle"
+        self._stop()
         self._render()
 
-    # ----- glow animation ------------------------------------------------
-    def _start_anim(self):
-        if self._anim is None:
-            self._phase = 0.0
-            self._pulse()
+    def refresh_theme(self):
+        bg = TH.CARD_BG[1] if ctk.get_appearance_mode() == "Dark" else TH.CARD_BG[0]
+        self.meter.configure(bg=bg)
+        self._render()
 
-    def _stop_anim(self):
-        if self._anim is not None:
+    def retranslate(self):
+        self._render()
+
+    # ----- internals -----------------------------------------------------
+    def _clicked(self):
+        if self._mode != "busy" and self.command:
+            self.command()
+
+    def _stop(self):
+        if self._job is not None:
             try:
-                self.after_cancel(self._anim)
+                self.after_cancel(self._job)
             except Exception:
                 pass
-            self._anim = None
-
-    def _pulse(self):
-        if self._mode != "recording":
-            self._anim = None
-            return
-        self._phase = (self._phase + 0.14) % (2 * math.pi)
-        self._render()
-        self._anim = self.after(55, self._pulse)
-
-    # ----- drawing -------------------------------------------------------
-    def _face_colors(self):
-        """(circle fill, mic stroke) for the current mode + hover."""
-        dark = ctk.get_appearance_mode() == "Dark"
-        if self._mode == "recording":
-            return ("#ef4444" if not self._hover else "#f05252"), "#ffffff"
-        if self._mode == "busy":
-            return ("#39445a" if dark else "#d7deea"), ("#9aa6b6" if dark else "#8a94a6")
-        # idle
-        if dark:
-            fill = "#333f54" if self._hover else "#2b3446"
-            return fill, "#e8edf4"
-        fill = "#dbe3f1" if self._hover else "#e7ecf5"
-        return fill, "#1f2733"
+            self._job = None
+        self.meter.pack_forget()
 
     def _render(self):
-        cv = self.canvas
-        cv.delete("all")
-        c = self.size / 2
-
+        font = (_ui_font(), 13, "bold")
         if self._mode == "recording":
-            for i in range(3):
-                ph = self._phase + i * (2 * math.pi / 3)
-                s = (math.sin(ph) + 1) / 2
-                r = 20 + 3 + s * 10 + i * 2
-                intensity = max(0.0, 0.6 * (1 - s))
-                col = _hex(_blend(self._bg_rgb, self._glow_rgb, intensity))
-                cv.create_oval(c - r, c - r, c + r, c + r, outline=col, width=2)
+            secs = int(time.time() - self._started)
+            self.btn.configure(text="%d:%02d" % (secs // 60, secs % 60), image=self._img_stop,
+                               fg_color=_RED, hover_color=_RED_HOVER, text_color="#ffffff",
+                               state="normal", font=font)
+        elif self._mode == "busy":
+            self.btn.configure(text=self._t("voice_busy"), image=self._img_mic_muted,
+                               fg_color=TH.NEUTRAL, hover_color=TH.NEUTRAL, text_color=TH.MUTED,
+                               state="disabled", font=font)
+        else:
+            self.btn.configure(text=self._t("voice_btn"), image=self._img_mic,
+                               fg_color=TH.NEUTRAL, hover_color=TH.NEUTRAL_HOVER,
+                               text_color=TH.TEXT, state="normal", font=font)
 
-        fill, stroke = self._face_colors()
-        rad = 20
-        cv.create_oval(c - rad, c - rad, c + rad, c + rad, fill=fill, outline=fill)
-        self._draw_mic(c, c, stroke)
-
-    def _draw_mic(self, cx, cy, color):
-        """Small vector mic icon (capsule body + cradle + stand)."""
-        w = 2
-        bw, top, bot = 5, cy - 12, cy - 1          # capsule body
-        self.canvas.create_arc(cx - bw, top - bw, cx + bw, top + bw,
-                               start=0, extent=180, style="arc", outline=color, width=w)
-        self.canvas.create_arc(cx - bw, bot - bw, cx + bw, bot + bw,
-                               start=180, extent=180, style="arc", outline=color, width=w)
-        self.canvas.create_line(cx - bw, top, cx - bw, bot, fill=color, width=w)
-        self.canvas.create_line(cx + bw, top, cx + bw, bot, fill=color, width=w)
-        # cradle (U hugging the mic bottom)
-        self.canvas.create_arc(cx - 9, cy - 8, cx + 9, cy + 10,
-                               start=200, extent=140, style="arc", outline=color, width=w)
-        # stand + base
-        self.canvas.create_line(cx, cy + 10, cx, cy + 15, fill=color, width=w)
-        self.canvas.create_line(cx - 6, cy + 16, cx + 6, cy + 16, fill=color, width=w,
-                               capstyle="round")
+    def _tick(self):
+        if self._mode != "recording":
+            self._job = None
+            return
+        self._phase += 0.35
+        level = max(0.0, min(1.0, float(self.level_fn() or 0.0)))
+        # Natural-looking motion: real level, shaped per bar, with a little
+        # movement even in silence so the user can see it is listening.
+        for i in range(self.BARS):
+            wobble = 0.08 * (1 + math.sin(self._phase + i * 1.3))
+            target = min(1.0, level * self.PROFILE[i] * 1.4 + wobble)
+            self._levels[i] = 0.55 * self._levels[i] + 0.45 * target
+        cv = self.meter
+        cv.delete("all")
+        h = int(cv.cget("height"))
+        for i, lv in enumerate(self._levels):
+            bh = max(4, int(lv * (h - 2)))
+            x = i * 8 + 2
+            y0 = (h - bh) // 2
+            cv.create_rectangle(x, y0, x + 4, y0 + bh, fill=_RED, outline=_RED)
+        self._render()
+        self._job = self.after(70, self._tick)
 
     def destroy(self):
-        self._stop_anim()
+        self._stop()
         super().destroy()
+
+
+def _ui_font():
+    from .widgets import ui_family
+    return ui_family()

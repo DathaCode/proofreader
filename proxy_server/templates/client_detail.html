@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, money, cost_cell, status_badge with context %}
+{% block title %}{{ c.display }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a href="{{ url_for('admin.clients') }}" class="small">{{ icon('back') }} All clients</a>
+    <h1 style="margin-top:6px;display:flex;align-items:center;gap:10px">
+      <span class="dot {{ 'on' if c.online }}"></span>{{ c.display }}
+    </h1>
+    <p>
+      <span class="mono">{{ c.ip }}</span>
+      {% if c.hostname %} · PC {{ c.hostname }}{% endif %}
+      {% if c.username %} · user {{ c.username }}{% endif %}
+      {% if c.app_version %} · app <span class="badge {{ 'warn' if c.outdated }}">v{{ c.app_version }}</span>{% endif %}
+      · {{ 'online' if c.online else 'last seen ' ~ (c.last_contact|ago) }}
+      · first seen {{ c.first_seen|dt }}
+    </p>
+  </div>
+  <div class="actions">
+    <form class="rename" method="post" action="{{ url_for('admin.clients_rename') }}">
+      <input type="hidden" name="ip" value="{{ c.ip }}">
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <input name="name" value="{{ c.name }}" placeholder="{{ c.hostname or 'Name this PC' }}" maxlength="60">
+      <button class="btn" type="submit">{{ icon('edit') }} Rename</button>
+    </form>
+    <a class="btn ghost" href="{{ url_for('admin.logs', client=c.ip, period='all') }}">{{ icon('list') }} All logs</a>
+    <a class="btn ghost" href="{{ url_for('admin.logs_export', client=c.ip, period='all') }}">{{ icon('download') }} CSV</a>
+  </div>
+</div>
+
+<div class="kpis" style="margin-bottom:18px">
+  {% for label, t in [('Today', t_today), ('This month', t_month), ('All time', t_all)] %}
+  <div class="kpi {{ 'accent' if loop.first }}">
+    <div class="k-label">{{ label }}</div>
+    <div class="k-value">{{ t.requests|num }} <span class="muted" style="font-size:13px;font-weight:500">checks</span></div>
+    <div class="k-sub">{{ t.words|num }} words · {{ t.errors|num }} errors · {{ cost_cell(t) }}</div>
+  </div>
+  {% endfor %}
+  <div class="kpi">
+    <div class="k-label">Avg. response (month)</div>
+    <div class="k-value">{{ t_month.avg_latency|ms }}</div>
+    <div class="k-sub">{{ t_month.failures }} failed · {{ t_month.voice }} voice</div>
+  </div>
+</div>
+
+<div class="grid grid-21" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>Daily checks</h2><p>Last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-daily"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Working hours</h2><p>Checks by hour, last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-hours"></canvas></div></div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><div><h2>Month by month</h2><p>Last 12 months with activity</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Month</th><th class="num">Checks</th><th class="num">Words</th><th class="num">Errors</th><th class="num">Est. cost</th><th></th></tr></thead>
+        <tbody>
+        {% for m in months %}
+          <tr><td>{{ m.month }}</td><td class="num">{{ m.requests|num }}</td><td class="num">{{ m.words|num }}</td>
+              <td class="num">{{ m.errors|num }}</td><td class="num">{{ money(m.cost_total, m.cost_has_est) }}</td>
+              <td class="right"><a href="{{ url_for('admin.logs', client=c.ip, month=m.month) }}">logs →</a></td></tr>
+        {% else %}
+          <tr><td colspan="6"><div class="empty">No activity yet.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Recent activity</h2><p>Latest 15 requests</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Time</th><th class="num">Words</th><th class="num">Errors</th><th class="num">Time taken</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for r in recent %}
+          <tr><td class="nowrap">{{ r.ts|dt }}</td><td class="num">{{ r.words|num }}</td><td class="num">{{ r.errors_found }}</td>
+              <td class="num">{{ r.latency_ms|ms }}</td><td>{{ status_badge(r.status) }}</td></tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty">No requests yet.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var D = {{ daily|tojson }}, H = {{ hourly|tojson }};
+  PA.chart("c-daily", function (p) { return {
+    type: "bar", data: { labels: D.labels, datasets: [{ label: "Checks", data: D.requests,
+      backgroundColor: PA.alpha(p.primary, .85), borderRadius: 4, maxBarThickness: 18 }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 10 } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }) } } }; });
+  PA.chart("c-hours", function (p) { return {
+    type: "bar", data: { labels: H.map(function (_, h) { return (h < 10 ? "0" : "") + h; }),
+      datasets: [{ label: "Checks", data: H, backgroundColor: PA.alpha(p.success, .8), borderRadius: 3 }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 12 } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }) } } }; });
+})();
+</script>
+{% endblock %}

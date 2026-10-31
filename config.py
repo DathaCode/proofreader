@@ -29,6 +29,11 @@ DEFAULT_CONFIG = {
     "theme": "dark",              # "dark" or "light"
     "language": "en",             # "en" english UI, "si" sinhala UI
     "show_explanations": True,
+    # v5 UI
+    "font_size": 16,              # editor text size (A- / A+)
+    "window_geometry": "",        # remembered "WxH+X+Y"
+    "window_zoomed": False,       # remembered maximised state
+    "keep_history": True,         # recent checks saved on this PC only
 }
 
 
