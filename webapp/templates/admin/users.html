@@ -1,0 +1,116 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import icon, csrf, cost_cell, role_badge with context %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Users</h1>
+    <p>{{ rows|length }} accounts · <b>{{ online_count }}</b> online now{% if disabled_count %} · {{ disabled_count }} disabled{% endif %}</p>
+  </div>
+  <form class="actions" method="get">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search user, name, role or IP" style="width:260px">
+    <button class="btn ghost" type="submit">{{ icon('search') }} Search</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-head"><div><h2>Add a user</h2><p>Journalists sign in with this username and password. Passwords are stored hashed — nobody can read them, only reset them.</p></div></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.users_add') }}" class="form-grid add-user" autocomplete="off">
+      {{ csrf() }}
+      <label class="field">Username <input name="username" required maxlength="60" placeholder="e.g. kamal or kamal@newsfirst.lk" autocomplete="off"></label>
+      <label class="field">Display name <input name="display_name" maxlength="60" placeholder="e.g. Kamal – Night desk"></label>
+      <label class="field">Password <input type="password" name="password" required minlength="{{ min_pw }}" autocomplete="new-password" placeholder="min {{ min_pw }} characters"></label>
+      <label class="field">Role
+        <select name="role">{% for r in roles %}<option value="{{ r }}">{{ r|capitalize }}{{ ' (full admin panel)' if r == 'admin' }}</option>{% endfor %}</select>
+      </label>
+      <span></span>
+      <button class="btn success" type="submit">{{ icon('user-plus') }} Add user</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:28px"></th>
+          <th>User</th>
+          <th>Role</th>
+          <th class="nowrap">Last activity</th>
+          <th class="nowrap">Last sign-in</th>
+          <th class="num">Today</th>
+          <th class="num">This month</th>
+          <th class="num">Month cost</th>
+          <th class="num">All time</th>
+          <th class="right">Manage</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in rows %}
+        <tr class="{{ 'is-disabled' if u.disabled }}">
+          <td><span class="dot {{ 'on' if u.online }}" title="{{ 'Online' if u.online else 'Offline' }}"></span></td>
+          <td class="client-cell">
+            <a class="client-name" href="{{ url_for('admin.user_detail', username=u.username) }}">{{ u.display_name or u.username }}</a>
+            {% if u.username == me %}<span class="you">(you)</span>{% endif %}
+            {% if u.display_name %}<div class="client-sub">{{ u.username }}</div>{% endif %}
+          </td>
+          <td class="nowrap">{{ role_badge(u) }}</td>
+          <td class="nowrap">{{ u.last_contact|ago }}</td>
+          <td class="nowrap">{{ u.last_login|ago }}</td>
+          <td class="num">{{ (u.today.requests if u.today else 0)|num }}</td>
+          <td class="num">{{ (u.month.requests if u.month else 0)|num }}</td>
+          <td class="num">{% if u.month %}{{ cost_cell(u.month) }}{% else %}$0{% endif %}</td>
+          <td class="num"><a href="{{ url_for('admin.user_detail', username=u.username) }}">{{ (u.all.requests if u.all else 0)|num }} →</a></td>
+          <td>
+            <div class="row-actions">
+              <details class="pw">
+                <summary class="btn ghost icon" title="Reset password">{{ icon('key') }}</summary>
+                <form class="pw-pop" method="post" action="{{ url_for('admin.users_password', username=u.username) }}">
+                  {{ csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+                  <b class="small">New password for {{ u.username }}</b>
+                  <input type="password" name="password" minlength="{{ min_pw }}" required autocomplete="new-password" placeholder="min {{ min_pw }} characters">
+                  <input type="password" name="password2" minlength="{{ min_pw }}" required autocomplete="new-password" placeholder="repeat">
+                  <button class="btn sm" type="submit">Reset password</button>
+                </form>
+              </details>
+              {% if u.username != me %}
+              <form class="inline" method="post" action="{{ url_for('admin.users_update', username=u.username) }}">
+                {{ csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+                {% if u.role == 'admin' %}
+                <button class="btn ghost sm" name="action" value="make_user" title="Remove admin rights">→ User</button>
+                {% else %}
+                <button class="btn ghost sm" name="action" value="make_admin" title="Give full admin-panel access">→ Admin</button>
+                {% endif %}
+              </form>
+              <form class="inline" method="post" action="{{ url_for('admin.users_update', username=u.username) }}">
+                {{ csrf() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+                {% if u.disabled %}
+                <button class="btn ghost sm" name="action" value="enable" title="Allow sign-in again">Enable</button>
+                {% else %}
+                <button class="btn ghost sm" name="action" value="disable" title="Block sign-in (signs them out at once); history is kept">Disable</button>
+                {% endif %}
+              </form>
+              <form class="inline" method="post" action="{{ url_for('admin.users_delete', username=u.username) }}"
+                    data-confirm="Delete the account “{{ u.username }}”? They can no longer sign in. Their usage history stays in reports. Tip: Disable is reversible, Delete is not.">
+                {{ csrf() }}
+                <button class="btn danger-ghost icon" title="Delete account">{{ icon('trash') }}</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="10"><div class="empty">{{ icon('users') }}{% if q %}No user matches “{{ q }}”.{% else %}No users yet.{% endif %}</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="muted small">
+  Online = the proofreader page was open in the last 5 minutes (it checks in every minute while visible).
+  Disabling or deleting an account signs it out immediately.
+  {% if legacy %}{{ legacy.requests|num }} older checks were logged before per-user tracking — they appear in reports as “(before user tracking)”.{% endif %}
+</p>
+{% endblock %}

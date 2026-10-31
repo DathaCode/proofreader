@@ -6,7 +6,7 @@
   <title>AI Proofreader — සිංහල · தமிழ் · English</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script>window.__UI_LANG__ = "{{ ui_lang }}";</script>
+  <script>window.__UI_LANG__ = "{{ ui_lang }}"; window.__MAX_WORDS__ = {{ max_words|int }};</script>
 </head>
 <body>
   <header class="appbar">
@@ -23,7 +23,7 @@
     <span class="user">👤 <b>{{ username }}</b>{% if role == 'admin' %} · admin{% endif %}</span>
     <button id="themeBtn" class="iconbtn" onclick="toggleTheme()" data-i18n-title="theme" title="Theme">🌙</button>
     {% if role == 'admin' %}
-      <a class="btn ghost sm" href="{{ url_for('admin') }}">⚙️ <span data-i18n="admin_link">Admin</span></a>
+      <a class="btn ghost sm" href="{{ url_for('admin.dashboard') }}">⚙️ <span data-i18n="admin_link">Admin</span></a>
     {% endif %}
     <a class="btn ghost sm" href="{{ url_for('logout') }}">🚪 <span data-i18n="logout">Logout</span></a>
   </header>

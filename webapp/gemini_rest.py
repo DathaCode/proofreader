@@ -17,6 +17,7 @@ proxy needs:
 
     * list_models()      -> [model ids that support generateContent]
     * generate_content() -> str (the model's text reply)
+    * generate_content_ex() / transcribe_ex() -> (text, token usage)
     * test()             -> (ok: bool, message: str)
 """
 
@@ -70,6 +71,10 @@ class GeminiRest:
     # ----- generation ----------------------------------------------------
     def generate_content(self, prompt, temperature=0.05, json_mode=True):
         """Call <model>:generateContent and return the candidate text."""
+        return self.generate_content_ex(prompt, temperature, json_mode)[0]
+
+    def generate_content_ex(self, prompt, temperature=0.05, json_mode=True):
+        """Like generate_content, but returns (text, usage) — see _usage()."""
         if not self.api_key:
             raise GeminiRestError("No API key set")
         url = "%s/models/%s:generateContent?key=%s" % (API_ROOT, self.model, self.api_key)
@@ -80,20 +85,20 @@ class GeminiRest:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": gen_config,
         }
-        try:
-            r = requests.post(url, json=body, timeout=self.timeout)
-        except requests.exceptions.RequestException as e:
-            raise GeminiRestError("Network error: %s" % e, detail=str(e))
-        if r.status_code != 200:
-            raise _http_error(r)
-        return _extract_text(r.json())
+        data = self._post(url, body)
+        return _extract_text(data), _usage(data, self.model)
 
     # ----- audio transcription -------------------------------------------
     def transcribe(self, prompt, audio_b64, mime_type="audio/wav", temperature=0.0):
-        """Send inline audio + an instruction; return the model's plain text.
+        """Send inline audio + an instruction; return the model's plain text."""
+        return self.transcribe_ex(prompt, audio_b64, mime_type, temperature)[0]
+
+    def transcribe_ex(self, prompt, audio_b64, mime_type="audio/wav", temperature=0.0):
+        """Like transcribe, but returns (text, usage).
 
         `audio_b64` is base64 of a Gemini-supported audio format (wav/mp3/ogg/
-        flac/aac). Temperature 0 keeps transcription deterministic.
+        flac/aac). Temperature 0 keeps transcription deterministic. Silence comes
+        back as an empty candidate — that is "no speech", returned as "".
         """
         if not self.api_key:
             raise GeminiRestError("No API key set")
@@ -105,13 +110,22 @@ class GeminiRest:
             ]}],
             "generationConfig": {"temperature": temperature},
         }
+        data = self._post(url, body)
+        try:
+            return _extract_text(data), _usage(data, self.model)
+        except GeminiRestError:
+            if (data.get("promptFeedback") or {}).get("blockReason"):
+                raise
+            return "", _usage(data, self.model)
+
+    def _post(self, url, body):
         try:
             r = requests.post(url, json=body, timeout=self.timeout)
         except requests.exceptions.RequestException as e:
             raise GeminiRestError("Network error: %s" % e, detail=str(e))
         if r.status_code != 200:
             raise _http_error(r)
-        return _extract_text(r.json())
+        return r.json()
 
     # ----- diagnostics ---------------------------------------------------
     def test(self):
@@ -124,6 +138,23 @@ class GeminiRest:
 
 
 # ----- helpers -----------------------------------------------------------
+def _usage(data, model):
+    """Billable token counts from a generateContent response.
+
+    in    = prompt tokens that are NOT audio (text / system prompt / injections)
+    audio = audio prompt tokens (voice typing; billed at a different rate)
+    out   = candidates + thinking tokens (both billed as output)
+    """
+    um = data.get("usageMetadata") or {}
+    prompt = int(um.get("promptTokenCount") or 0)
+    audio = 0
+    for d in (um.get("promptTokensDetails") or []):
+        if isinstance(d, dict) and str(d.get("modality", "")).upper() == "AUDIO":
+            audio += int(d.get("tokenCount") or 0)
+    out = int(um.get("candidatesTokenCount") or 0) + int(um.get("thoughtsTokenCount") or 0)
+    return {"model": model, "in": max(0, prompt - audio), "audio": audio, "out": out}
+
+
 def _short_name(name):
     name = (name or "").strip()
     if name.startswith("models/"):

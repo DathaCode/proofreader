@@ -1,0 +1,142 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import icon, csrf, money, cost_cell, status_badge, lang_badge, role_badge with context %}
+{% block title %}{{ u.display_name or u.username }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a href="{{ url_for('admin.users') }}" class="small">{{ icon('back') }} All users</a>
+    <h1 style="margin-top:6px;display:flex;align-items:center;gap:10px">
+      <span class="dot {{ 'on' if u.online }}"></span>{{ u.display_name or u.username }}
+      {% if u.deleted %}<span class="badge off">Deleted account</span>{% else %}{{ role_badge(u) }}{% endif %}
+    </h1>
+    <p>
+      <span class="mono">{{ u.username }}</span>
+      · {{ 'online now' if u.online else 'last active ' ~ (u.last_contact|ago) }}
+      · last sign-in {{ u.last_login|ago }}
+      {% if u.created %} · account created {{ u.created|dt }}{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    {% if not u.deleted %}
+    <form class="rename" method="post" action="{{ url_for('admin.users_update', username=u.username) }}">
+      {{ csrf() }}<input type="hidden" name="action" value="rename">
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <input name="display_name" value="{{ u.display_name }}" placeholder="Display name" maxlength="60">
+      <button class="btn" type="submit">{{ icon('edit') }} Rename</button>
+    </form>
+    <details class="pw">
+      <summary class="btn ghost">{{ icon('key') }} Reset password</summary>
+      <form class="pw-pop" method="post" action="{{ url_for('admin.users_password', username=u.username) }}">
+        {{ csrf() }}<input type="hidden" name="next" value="{{ request.path }}">
+        <input type="password" name="password" minlength="{{ min_pw }}" required autocomplete="new-password" placeholder="new password (min {{ min_pw }})">
+        <input type="password" name="password2" minlength="{{ min_pw }}" required autocomplete="new-password" placeholder="repeat">
+        <button class="btn sm" type="submit">Reset password</button>
+      </form>
+    </details>
+    {% endif %}
+    <a class="btn ghost" href="{{ url_for('admin.logs', user=u.username, period='all') }}">{{ icon('list') }} All logs</a>
+    <a class="btn ghost" href="{{ url_for('admin.logs_export', user=u.username, period='all') }}">{{ icon('download') }} CSV</a>
+  </div>
+</div>
+
+<div class="kpis" style="margin-bottom:18px">
+  {% for label, t in [('Today', t_today), ('This month', t_month), ('All time', t_all)] %}
+  <div class="kpi {{ 'accent' if loop.first }}">
+    <div class="k-label">{{ label }}</div>
+    <div class="k-value">{{ t.requests|num }} <span class="muted" style="font-size:13px;font-weight:500">checks</span></div>
+    <div class="k-sub">{{ t.words|num }} words · {{ t.errors|num }} errors · {{ cost_cell(t) }}</div>
+  </div>
+  {% endfor %}
+  <div class="kpi">
+    <div class="k-label">Avg. response (month)</div>
+    <div class="k-value">{{ t_month.avg_latency|ms }}</div>
+    <div class="k-sub">{{ t_month.failures }} failed · {{ t_month.voice }} voice</div>
+  </div>
+</div>
+
+<div class="grid grid-21" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>Daily checks</h2><p>Last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-daily"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Working hours</h2><p>Checks by hour, last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-hours"></canvas></div></div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>Month by month</h2><p>Last 12 months with activity</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Month</th><th class="num">Checks</th><th class="num">Words</th><th class="num">Errors</th><th class="num">Est. cost</th><th></th></tr></thead>
+        <tbody>
+        {% for m in months %}
+          <tr><td>{{ m.month }}</td><td class="num">{{ m.requests|num }}</td><td class="num">{{ m.words|num }}</td>
+              <td class="num">{{ m.errors|num }}</td><td class="num">{{ money(m.cost_total, m.cost_has_est) }}</td>
+              <td class="right"><a href="{{ url_for('admin.logs', user=u.username, month=m.month) }}">logs →</a></td></tr>
+        {% else %}
+          <tr><td colspan="6"><div class="empty">No activity yet.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><div><h2>Languages</h2><p>Proofreads, all time</p></div></div>
+      <div class="card-body">
+        <dl class="kv">
+          {% for name, n in langs %}<dt>{{ name }}</dt><dd>{{ n|num }}</dd>{% else %}<dt class="muted">No proofreads yet</dt><dd></dd>{% endfor %}
+        </dl>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Signed in from</h2><p>Most recent IP addresses</p></div></div>
+      <div class="card-body">
+        <dl class="kv">
+          {% for ip in ips %}<dt class="mono">{{ ip.ip }}</dt><dd>{{ ip.n|num }} checks · {{ ip.last|ago }}</dd>{% else %}<dt class="muted">No requests yet</dt><dd></dd>{% endfor %}
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div><h2>Recent activity</h2><p>Latest 15 requests</p></div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>Lang</th><th class="num">Words</th><th class="num">Errors</th><th class="num">Auto-fixed</th><th class="num">Time taken</th><th>IP</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for r in recent %}
+        <tr><td class="nowrap">{{ r.ts|dt }}</td><td>{{ lang_badge(r.lang) }}</td><td class="num">{{ r.words|num }}</td><td class="num">{{ r.errors_found }}</td>
+            <td class="num">{{ r.pre_fixed or '' }}</td><td class="num">{{ r.latency_ms|ms }}</td><td class="mono">{{ r.client_ip }}</td><td>{{ status_badge(r.status) }}</td></tr>
+      {% else %}
+        <tr><td colspan="8"><div class="empty">No requests yet.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var D = {{ daily|tojson }}, H = {{ hourly|tojson }};
+  PA.chart("c-daily", function (p) { return {
+    type: "bar", data: { labels: D.labels, datasets: [{ label: "Checks", data: D.requests,
+      backgroundColor: PA.alpha(p.primary, .85), borderRadius: 4, maxBarThickness: 18 }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 10 } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }) } } }; });
+  PA.chart("c-hours", function (p) { return {
+    type: "bar", data: { labels: H.map(function (_, h) { return (h < 10 ? "0" : "") + h; }),
+      datasets: [{ label: "Checks", data: H, backgroundColor: PA.alpha(p.success, .8), borderRadius: 3 }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 12 } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }) } } }; });
+})();
+</script>
+{% endblock %}

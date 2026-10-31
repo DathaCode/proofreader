@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import icon, csrf, cost_cell with context %}
+{% block title %}Data &amp; Export{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Data &amp; Export</h1>
+    <p>What is stored, downloads for records, and importing older usage history</p></div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>What is in this database</h2><p>Everything lives in the server's <span class="mono">data/</span> folder (backed up nightly to S3)</p></div></div>
+    <div class="card-body">
+      <dl class="kv">
+        <dt>Usage rows</dt><dd>{{ total_rows|num }} requests</dd>
+        <dt>Words checked</dt><dd>{{ all_totals.words|num }}</dd>
+        <dt>All-time est. cost</dt><dd>{{ cost_cell(all_totals) }}</dd>
+        <dt>User accounts</dt><dd>{{ users|num }}</dd>
+        <dt>Learned corrections</dt><dd>{{ stats.total|num }}</dd>
+        <dt>usage.db</dt><dd class="mono">requests, users' activity</dd>
+        <dt>corrections.db</dt><dd class="mono">self-learning corrections</dd>
+        <dt>web_config.json</dt><dd class="mono">settings + accounts</dd>
+      </dl>
+    </div>
+    {% if legacy %}<div class="card-body muted small" style="padding-top:0">The old usage_log.csv was imported on first start: {{ legacy }}. Those rows have no user or token data (cost is estimated).</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Export</h2><p>Download data from this server</p></div></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <a class="btn ghost" href="{{ url_for('admin.logs_export', period='all') }}">{{ icon('download') }} All usage logs (CSV)</a>
+      <a class="btn ghost" href="{{ url_for('admin.reports_export', period='this_month') }}">{{ icon('download') }} This month's report (CSV)</a>
+      <a class="btn ghost" href="{{ url_for('admin.corrections_export') }}">{{ icon('download') }} Learned corrections (JSON)</a>
+      <a class="btn ghost" href="{{ url_for('admin.data_export_users') }}">{{ icon('download') }} User list (CSV, no passwords)</a>
+      <span class="muted small">CSV files open in Excel with Sinhala/Tamil text intact.</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><div><h2>Import usage logs</h2><p>Restore an export, or merge a usage CSV from another copy of this app</p></div></div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('admin.data_import_usage') }}" enctype="multipart/form-data">
+      {{ csrf() }}
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <label class="field">CSV file <input type="file" name="file" accept=".csv" required>
+          <span class="hint">A usage CSV exported from the Logs page, or an old <code>usage_log.csv</code>. Requests are matched exactly, so importing the same file twice never creates duplicates.</span></label>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">{{ icon('upload') }} Import logs</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

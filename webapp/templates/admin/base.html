@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Admin{% endblock %} · AI Proofreader</title>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='admin/admin.css') }}">
+<script src="{{ url_for('static', filename='admin/admin.js') }}"></script>
+<script src="{{ url_for('static', filename='admin/chart.umd.min.js') }}"></script>
+</head>
+<body>
+{% include "admin/_icons.html" %}
+{% from "admin/_macros.html" import icon %}
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><img src="{{ url_for('static', filename='app-icon.png') }}" alt=""></div>
+      <div><b>AI Proofreader</b><span>Web Admin</span></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">Overview</div>
+      <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active == 'dashboard' }}">{{ icon('grid') }} Dashboard</a>
+      <a href="{{ url_for('admin.users') }}" class="{{ 'active' if active == 'users' }}">{{ icon('users') }} Users</a>
+      <div class="nav-label">Usage</div>
+      <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if active == 'logs' }}">{{ icon('list') }} Logs</a>
+      <a href="{{ url_for('admin.reports') }}" class="{{ 'active' if active == 'reports' }}">{{ icon('report') }} Reports</a>
+      <div class="nav-label">Manage</div>
+      <a href="{{ url_for('admin.corrections') }}" class="{{ 'active' if active == 'corrections' }}">{{ icon('book') }} Corrections</a>
+      <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if active == 'settings' }}">{{ icon('settings') }} Settings</a>
+      <a href="{{ url_for('admin.data') }}" class="{{ 'active' if active == 'data' }}">{{ icon('database') }} Data &amp; Export</a>
+      <div class="nav-label">App</div>
+      <a href="{{ url_for('index') }}">{{ icon('pen') }} Open proofreader</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="server-chip" title="Gemini model">
+        <span class="dot {{ 'on' if model_ready }}"></span>{{ icon('server') }}
+        <span class="mono">{{ cur_model }}</span>
+      </div>
+      <div class="server-chip" title="Signed in as">{{ icon('users') }} <span>{{ me }}</span></div>
+      <button class="theme-btn" type="button" onclick="PA.toggleTheme()">{{ icon('moon') }} <span id="theme-label">Dark mode</span></button>
+      <a href="{{ url_for('logout') }}">{{ icon('logout') }} Log out</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+      <div class="flashes">
+        {% for cat, m in msgs %}
+        <div class="flash {{ cat }}">{{ icon('check' if cat == 'ok' else 'alert') }}<span>{{ m }}</span><button type="button" data-dismiss aria-label="Dismiss">&times;</button></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+    <div class="footnote">
+      <span class="warn">***Please verify Results before go LIVE!.</span>
+      <span>Developped by - Vidath - Lotus Technologies</span>
+    </div>
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

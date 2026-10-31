@@ -1,0 +1,213 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import icon, trend, money, cost_cell with context %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Live overview of the web proofreader · <span id="live-time">updated just now</span></p>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" href="{{ url_for('admin.users') }}">{{ icon('user-plus') }} Manage users</a>
+    <a class="btn ghost" href="{{ url_for('admin.reports') }}">{{ icon('report') }} Monthly report</a>
+  </div>
+</div>
+
+{% if not model_ready %}
+<div class="alert danger">{{ icon('alert') }}<div><b>Gemini is not ready:</b> {{ model_error or 'no API key' }}. Nobody can proofread until this is fixed. <a href="{{ url_for('admin.settings') }}#model">Open Settings →</a></div></div>
+{% endif %}
+{% if weak_password %}
+<div class="alert warn">{{ icon('lock') }}<div>The <b>admin</b> account still uses the default password, and this site is on the public internet. <a href="{{ url_for('admin.settings') }}#password">Change it now →</a></div></div>
+{% endif %}
+
+{# ---------------- Today ---------------- #}
+{% set td = kpis[0] %}
+<div class="kpi-group">
+  <div class="kpi-group-head"><h3>Today</h3><span class="muted small">{{ td.cmp }}</span></div>
+  <div class="kpis">
+    <div class="kpi accent">
+      <div class="k-label">{{ icon('activity') }} Checks</div>
+      <div class="k-value" id="today-requests">{{ td.cur.requests|num }}</div>
+      <div class="k-sub">{{ trend(td.t_requests) }} {{ td.cur.voice }} voice</div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">{{ icon('type') }} Words checked</div>
+      <div class="k-value" id="today-words">{{ td.cur.words|num }}</div>
+      <div class="k-sub">{{ trend(td.t_words) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">{{ icon('book') }} Errors found</div>
+      <div class="k-value">{{ td.cur.errors|num }}</div>
+      <div class="k-sub">{{ td.cur.pre_fixed|num }} auto-fixed from the learned list</div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">{{ icon('clock') }} Avg. response</div>
+      <div class="k-value">{{ td.cur.avg_latency|ms }}</div>
+      <div class="k-sub">{% if td.cur.failures %}<span class="badge error">{{ td.cur.failures }} failed</span>{% else %}no failures{% endif %}</div>
+    </div>
+    <div class="kpi">
+      <div class="k-label">{{ icon('dollar') }} Est. Gemini cost</div>
+      <div class="k-value" id="today-cost">{{ td.cur.cost_total|money(td.cur.cost_has_est) }}</div>
+      <div class="k-sub">{{ trend(td.t_cost, cost=True) }} {% if lkr_on %}{{ td.cur.cost_total|lkr }}{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Week / Month ---------------- #}
+<div class="grid grid-2" style="margin-bottom:18px">
+  {% for k in kpis[1:] %}
+  <div class="card">
+    <div class="card-head"><div><h2>{{ k.label }}</h2><p>{{ k.cmp }}</p></div></div>
+    <div class="card-body">
+      <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <div><div class="muted small">Checks</div><div style="font-size:20px;font-weight:660">{{ k.cur.requests|num }}</div>{{ trend(k.t_requests) }}</div>
+        <div><div class="muted small">Words</div><div style="font-size:20px;font-weight:660">{{ k.cur.words|num }}</div>{{ trend(k.t_words) }}</div>
+        <div><div class="muted small">Errors found</div><div style="font-size:20px;font-weight:660">{{ k.cur.errors|num }}</div><span class="muted small">{{ '%.1f'|format(k.cur.failure_rate) }}% failed</span></div>
+        <div><div class="muted small">Est. cost</div><div style="font-size:20px;font-weight:660">{{ k.cur.cost_total|money(k.cur.cost_has_est) }}</div>{{ trend(k.t_cost, cost=True) }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ---------------- Activity + live ---------------- #}
+<div class="grid grid-21" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Daily activity</h2><p>Last 30 days</p></div>
+      <div class="legend-inline"><span><i style="background:var(--primary)"></i>Checks</span><span><i style="background:var(--violet)"></i>Words</span></div>
+    </div>
+    <div class="card-body"><div class="chart"><canvas id="c-daily"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Online now</h2><p>Proofreader open in the last 5 minutes</p></div>
+      <span class="badge ok"><span id="live-count">{{ online|length }}</span>&nbsp;/ {{ user_total }}</span>
+    </div>
+    <ul class="live-list" id="live-list">
+      {% for u in online %}
+      <li><span class="pulse"></span><div class="who"><a href="{{ url_for('admin.user_detail', username=u.username) }}">{{ u.display }}</a><div class="meta">{{ u.role }}{% if u.ip %} · {{ u.ip }}{% endif %}</div></div><span class="meta">{{ u.last_contact|ago }}</span></li>
+      {% else %}
+      <li class="muted">Nobody has the proofreader open right now.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="card-head"><div><h2>Top users</h2><p>Checks this month</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-top"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Busiest hours</h2><p>Checks by hour of day, last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-hours"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Results</h2><p>Last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-status"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Languages</h2><p>Proofreads by language, last 30 days</p></div></div>
+    <div class="card-body"><div class="chart sm"><canvas id="c-langs"></canvas></div></div>
+  </div>
+</div>
+
+<div class="grid grid-21" style="align-items:start">
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Users this month</h2><p>Busiest first · estimated cost per user</p></div>
+      <a class="btn ghost sm" href="{{ url_for('admin.users') }}">All users →</a>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>User</th><th class="num">Checks</th><th class="num">Words</th><th class="num">Est. cost</th><th>Share</th></tr></thead>
+        <tbody>
+        {% for u in top_users %}
+          <tr>
+            <td class="client-cell">{% if u.username %}<a class="client-name" href="{{ url_for('admin.user_detail', username=u.username) }}">{{ u.display }}</a>{% if u.display != u.username %}<div class="client-sub">{{ u.username }}</div>{% endif %}{% else %}<span class="muted">{{ u.display }}</span>{% endif %}</td>
+            <td class="num">{{ u.requests|num }}</td>
+            <td class="num">{{ u.words|num }}</td>
+            <td class="num">{{ cost_cell(u) }}</td>
+            <td>{% set pct = (100.0 * u.requests / month_totals.requests) if month_totals.requests else 0 %}
+              <div class="share"><div class="bar"><i style="width:{{ pct }}%"></i></div><span>{{ '%.0f'|format(pct) }}%</span></div></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty">{{ icon('inbox') }}No checks yet this month.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2>Server health</h2><a class="btn ghost sm" href="{{ url_for('admin.settings') }}">{{ icon('settings') }} Settings</a></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Gemini</dt><dd>{% if model_ready %}<span class="badge ok">Ready</span>{% else %}<span class="badge error">Not ready</span>{% endif %}</dd>
+          <dt>Model</dt><dd class="mono">{{ cfg.model }}</dd>
+          <dt>API key</dt><dd>{{ 'Set' if has_key else 'Missing' }}</dd>
+          <dt>Uptime</dt><dd>{{ uptime }}</dd>
+          <dt>Long texts</dt><dd>up to {{ cfg.max_words|num }} words · {{ cfg.chunk_words }}/part</dd>
+          <dt>Parallel calls</dt><dd>{{ cfg.max_concurrent }}</dd>
+          <dt>Confidence</dt><dd>≥ {{ cfg.confidence_threshold }}</dd>
+          <dt>Rate limit</dt><dd>{{ cfg.rate_limit_per_min }}/min per user</dd>
+          <dt>Total logged</dt><dd>{{ all_totals.requests|num }} checks</dd>
+          <dt>All-time cost</dt><dd>{{ cost_cell(all_totals) }}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Learned corrections</h2><a class="btn ghost sm" href="{{ url_for('admin.corrections') }}">Manage →</a></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>Total</dt><dd>{{ stats.total|num }}</dd>
+          <dt>Auto-fix (precheck)</dt><dd>{{ stats.precheck|num }}</dd>
+          <dt>Prompt hints</dt><dd>{{ stats.inject|num }}</dd>
+          <dt>Confirmed</dt><dd>{{ stats.confirmed|num }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var C = {{ charts|tojson }};
+  PA.chart("c-daily", function (p) { return {
+    data: { labels: C.daily.labels, datasets: [
+      { type: "bar", label: "Checks", data: C.daily.requests, backgroundColor: PA.alpha(p.primary, .85),
+        borderRadius: 4, maxBarThickness: 18, yAxisID: "y" },
+      { type: "line", label: "Words", data: C.daily.words, borderColor: p.violet, backgroundColor: PA.alpha(p.violet, .12),
+        fill: true, tension: .35, pointRadius: 0, borderWidth: 2, yAxisID: "y1" } ] },
+    options: { interaction: { mode: "index", intersect: false }, plugins: { legend: { display: false } },
+      scales: { x: Object.assign(PA.grid(p), { grid: { display: false }, ticks: { maxTicksLimit: 10 } }),
+                y: Object.assign(PA.grid(p), { beginAtZero: true, title: { display: true, text: "checks" } }),
+                y1: { position: "right", beginAtZero: true, grid: { display: false }, border: { display: false },
+                      title: { display: true, text: "words" } } } } }; });
+  PA.chart("c-top", function (p) { return {
+    type: "bar", data: { labels: C.top.labels, datasets: [{ label: "Checks", data: C.top.requests,
+      backgroundColor: PA.alpha(p.primary, .85), borderRadius: 4, maxBarThickness: 16 }] },
+    options: { indexAxis: "y", plugins: { legend: { display: false } },
+      scales: { x: Object.assign(PA.grid(p), { beginAtZero: true }), y: { grid: { display: false }, border: { display: false } } } } }; });
+  PA.chart("c-hours", function (p) { return {
+    type: "bar", data: { labels: C.hourly.map(function (_, h) { return (h < 10 ? "0" : "") + h; }),
+      datasets: [{ label: "Checks", data: C.hourly, backgroundColor: PA.alpha(p.success, .8), borderRadius: 3 }] },
+    options: { plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 12 } },
+                y: Object.assign(PA.grid(p), { beginAtZero: true }) } } }; });
+  PA.chart("c-status", function (p) { return {
+    type: "doughnut", data: { labels: ["Proofread OK", "Voice", "Failed"], datasets: [{ data: C.status,
+      backgroundColor: [p.primary, p.violet, p.danger], borderColor: p.surface, borderWidth: 2 }] },
+    options: { cutout: "68%", plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } } } }; });
+  PA.chart("c-langs", function (p) { return {
+    type: "doughnut", data: { labels: ["Sinhala", "Tamil", "English", "Not recorded"], datasets: [{ data: C.langs,
+      backgroundColor: [p.primary, p.warning, p.success, p.border], borderColor: p.surface, borderWidth: 2 }] },
+    options: { cutout: "68%", plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } } } }; });
+  PA.live("{{ url_for('admin.api_live') }}");
+})();
+</script>
+{% endblock %}

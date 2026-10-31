@@ -122,6 +122,27 @@ class CorrectionsDB:
             self._set_meta("last_updated", now)
             self._conn.commit()
 
+    def import_items(self, items, added_by="import"):
+        """Merge corrections from an exported JSON (Admin -> Corrections ->
+        Import). Keeps each entry's mode / count / confirmed state, gets a fresh
+        id, and skips any `wrong` already present. Returns how many were added."""
+        now = datetime.now().isoformat()
+        with self.lock:
+            before = self._conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+            for c in items or []:
+                if not isinstance(c, dict):
+                    continue
+                c = dict(c)
+                c.pop("id", None)               # ids from another DB could collide
+                c.setdefault("added_by", added_by)
+                c.setdefault("source", "import")
+                self._insert_imported(c, now)
+            after = self._conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+            if after != before:
+                self._set_meta("last_updated", now)
+            self._conn.commit()
+        return after - before
+
     # ----- migration -----------------------------------------------------
     def _migrate_lang_column(self):
         """Add the `lang` column to a pre-existing DB that predates it.

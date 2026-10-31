@@ -162,6 +162,7 @@ textarea#input {
 textarea#input:focus { border-color: var(--accent); }
 
 .counter { color: var(--muted); font-size: 13px; margin: 8px 2px 12px; }
+.counter.over { color: #dc2626; font-weight: 600; }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- results ---------- */

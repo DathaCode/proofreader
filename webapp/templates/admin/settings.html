@@ -1,0 +1,163 @@
+{% extends "admin/base.html" %}
+{% from "admin/_macros.html" import icon, csrf with context %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Settings</h1><p>Changes apply immediately — no restart needed</p></div></div>
+
+<div class="settings-layout">
+  <nav class="settings-nav">
+    <a href="#model">Gemini &amp; API key</a>
+    <a href="#text">Accuracy &amp; long texts</a>
+    <a href="#access">Access &amp; limits</a>
+    <a href="#pricing">Gemini prices</a>
+    <a href="#password">My password</a>
+  </nav>
+
+  <div>
+    {# ---------------------------------------------------- model #}
+    <div class="card section-anchor" id="model">
+      <div class="card-head"><div><h2>Gemini &amp; API key</h2><p>The key is stored only on the server (data/api_key.txt) and is never sent to browsers · current key <span class="mono">{{ key_masked }}</span></p></div>
+        {% if model_ready %}<span class="badge ok">Ready</span>{% else %}<span class="badge error">Not ready</span>{% endif %}</div>
+      <div class="card-body">
+        {% if model_error %}<div class="alert danger">{{ icon('alert') }} {{ model_error }}</div>{% endif %}
+        <form method="post" action="{{ url_for('admin.save_api_key') }}" class="actions" style="margin-bottom:10px">
+          {{ csrf() }}
+          <input type="password" name="api_key" placeholder="{{ 'Key is set — paste a new one to replace it' if has_key else 'Paste your Gemini API key (AIza…)' }}" style="flex:1;min-width:280px" autocomplete="off">
+          <button class="btn" type="submit">Save key</button>
+        </form>
+        <div class="actions" style="margin-bottom:18px">
+          <form class="inline" method="post" action="{{ url_for('admin.test_api_key') }}">{{ csrf() }}<button class="btn ghost" type="submit">{{ icon('activity') }} Test key (real proofread)</button></form>
+          <form class="inline" method="post" action="{{ url_for('admin.refresh_models') }}">{{ csrf() }}<button class="btn ghost" type="submit">{{ icon('refresh') }} Refresh model list</button></form>
+        </div>
+        <form method="post" action="{{ url_for('admin.settings_save') }}">
+          {{ csrf() }}<input type="hidden" name="section" value="model">
+          <div class="form-grid">
+            <label class="field">Model
+              <select name="model">
+                {% if cfg.model and cfg.model not in available_models %}<option value="{{ cfg.model }}" selected>{{ cfg.model }} (current)</option>{% endif %}
+                {% for m in available_models %}<option value="{{ m }}" {{ 'selected' if m == cfg.model }}>{{ m }}</option>{% endfor %}
+              </select>
+              <span class="hint">{% if available_models %}{{ available_models|length }} available. {% endif %}A current “flash” model is the best balance of Sinhala/Tamil quality, speed and cost.</span>
+            </label>
+            <label class="field">Parallel Gemini calls
+              <input type="number" name="max_concurrent" min="1" max="16" value="{{ cfg.max_concurrent }}">
+              <span class="hint">Gemini calls in flight at once, shared by everyone (long texts use several). 8 suits ~20 journalists.</span>
+            </label>
+            <label class="field">Timeout per call (seconds)
+              <input type="number" name="request_timeout" min="15" max="600" value="{{ cfg.request_timeout }}">
+              <span class="hint">“Thinking” models such as 2.5-pro need 120 s. A part that times out is retried once.</span>
+            </label>
+          </div>
+          <div class="form-actions"><button class="btn" type="submit">Save &amp; test model</button></div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------------------------------------------------- text #}
+    <div class="card section-anchor" id="text">
+      <div class="card-head"><div><h2>Accuracy &amp; long texts</h2><p>Long texts are split into parts that are checked in parallel, then joined back together</p></div></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.settings_save') }}">
+          {{ csrf() }}<input type="hidden" name="section" value="text">
+          <div class="form-grid">
+            <label class="field">Confidence threshold
+              <input type="number" name="confidence_threshold" step="0.01" min="0.5" max="0.99" value="{{ cfg.confidence_threshold }}">
+              <span class="hint">Errors Gemini is less sure about are hidden. <b>0.75</b> matches the system prompts' own calibration; higher hides real errors.</span>
+            </label>
+            <label class="field">Max words per check
+              <input type="number" name="max_words" min="100" max="50000" value="{{ cfg.max_words }}">
+              <span class="hint">The proofreader shows this limit and blocks longer texts.</span>
+            </label>
+            <label class="field">Words per part
+              <input type="number" name="chunk_words" min="50" max="2000" value="{{ cfg.chunk_words }}">
+              <span class="hint">Smaller = faster, more parallel. 200–300 recommended.</span>
+            </label>
+            <label class="field">Hints sent to Gemini
+              <input type="number" name="inject_top_n" min="0" max="500" value="{{ cfg.inject_top_n }}">
+              <span class="hint">Most-used learned corrections (same language) included in each prompt.</span>
+            </label>
+          </div>
+          <div class="form-actions"><button class="btn" type="submit">Save</button></div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------------------------------------------------- access #}
+    <div class="card section-anchor" id="access">
+      <div class="card-head"><div><h2>Access &amp; limits</h2><p>Protects the Gemini quota and the accounts</p></div></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.settings_save') }}">
+          {{ csrf() }}<input type="hidden" name="section" value="access">
+          <div class="form-grid">
+            <label class="field">Checks per minute, per user
+              <input type="number" name="rate_limit_per_min" min="1" max="600" value="{{ cfg.rate_limit_per_min }}">
+              <span class="hint">Proofreads + voice takes. Counted per signed-in user, so a whole newsroom behind one IP is not throttled together.</span>
+            </label>
+            <label class="field">Stay signed in (hours)
+              <input type="number" name="session_hours" min="1" max="720" value="{{ cfg.session_hours }}">
+              <span class="hint">After this, users sign in again. 8–12 covers a shift.</span>
+            </label>
+            <label class="field">LKR per 1 USD (optional)
+              <input type="number" step="0.01" min="0" name="usd_lkr_rate" value="{{ cfg.usd_lkr_rate }}">
+              <span class="hint">Set to also show costs in rupees. 0 = USD only.</span>
+            </label>
+          </div>
+          <div class="form-actions"><button class="btn" type="submit">Save</button></div>
+        </form>
+      </div>
+    </div>
+
+    {# ---------------------------------------------------- pricing #}
+    <div class="card section-anchor" id="pricing">
+      <div class="card-head"><div><h2>Gemini prices</h2><p>USD per 1 million tokens, used to estimate cost. Check <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">Google's pricing page</a> when prices change.</p></div></div>
+      <form method="post" action="{{ url_for('admin.settings_pricing') }}">
+        {{ csrf() }}<input type="hidden" name="rows" value="{{ pricing|length }}">
+        <div class="table-wrap price-table">
+          <table>
+            <thead><tr><th>Model (or prefix)</th><th class="num">Text input</th><th class="num">Audio input</th><th class="num">Output (incl. thinking)</th><th>Remove</th></tr></thead>
+            <tbody>
+            {% for model, p in pricing %}
+              <tr>
+                <td><input name="model_{{ loop.index0 }}" value="{{ model }}" {{ 'readonly' if model == '*' }} class="mono">
+                  {% if model == '*' %}<div class="client-sub">fallback for any other model</div>{% endif %}</td>
+                <td><input type="number" step="0.001" min="0" name="in_{{ loop.index0 }}" value="{{ p['in'] }}"></td>
+                <td><input type="number" step="0.001" min="0" name="audio_{{ loop.index0 }}" value="{{ p.get('audio', p['in']) }}"></td>
+                <td><input type="number" step="0.001" min="0" name="out_{{ loop.index0 }}" value="{{ p['out'] }}"></td>
+                <td>{% if model != '*' %}<input type="checkbox" name="delete_{{ loop.index0 }}" title="Remove this row">{% endif %}</td>
+              </tr>
+            {% endfor %}
+              <tr>
+                <td><input name="model_{{ pricing|length }}" placeholder="add model, e.g. {{ cfg.model }}" class="mono"></td>
+                <td><input type="number" step="0.001" min="0" name="in_{{ pricing|length }}"></td>
+                <td><input type="number" step="0.001" min="0" name="audio_{{ pricing|length }}"></td>
+                <td><input type="number" step="0.001" min="0" name="out_{{ pricing|length }}"></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-body" style="padding-top:0"><div class="form-actions">
+          <button class="btn" type="submit">Save prices</button>
+          <span class="muted small">New prices apply to requests from now on; past costs are not recalculated.</span>
+        </div></div>
+      </form>
+    </div>
+
+    {# ---------------------------------------------------- password #}
+    <div class="card section-anchor" id="password">
+      <div class="card-head"><div><h2>My password</h2><p>Signed in as <b>{{ me }}</b>. Other users' passwords are reset from <a href="{{ url_for('admin.users') }}">Users</a>.</p></div></div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.settings_save') }}">
+          {{ csrf() }}<input type="hidden" name="section" value="password">
+          <div class="form-grid">
+            <label class="field">Current password <input type="password" name="current" required autocomplete="current-password"></label>
+            <label class="field">New password <input type="password" name="password" minlength="{{ min_pw }}" required autocomplete="new-password"></label>
+            <label class="field">Repeat new password <input type="password" name="password2" minlength="{{ min_pw }}" required autocomplete="new-password"></label>
+          </div>
+          <div class="form-actions"><button class="btn" type="submit">Change password</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

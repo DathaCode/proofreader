@@ -49,10 +49,23 @@
     el._timer = setTimeout(() => { el.className = "toast"; }, 3000);
   }
 
+  // Server-side limit for one check (Admin -> Settings -> Long texts).
+  const MAX_WORDS = window.__MAX_WORDS__ || 0;
+
   function updateCounter() {
     const text = input.value;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-    counter.textContent = window.t("counter", words, text.length);
+    const over = MAX_WORDS && words > MAX_WORDS;
+    counter.textContent = window.t("counter", words, text.length) +
+      (over ? "  ·  " + window.t("too_long_hint", MAX_WORDS) : "");
+    counter.classList.toggle("over", !!over);
+  }
+
+  // Server error text in the user's UI language (falls back to English).
+  function serverMsg(data, fallbackKey) {
+    const lang = window.currentLang ? window.currentLang() : "en";
+    return (data && (data["message_" + lang] || data.message_en || data.summary_en)) ||
+      window.t(fallbackKey);
   }
   input.addEventListener("input", updateCounter);
 
@@ -162,7 +175,7 @@
       const data = await res.json();
       if (res.status === 429) { toast(window.t("rate_limited"), "err"); return; }
       if (!res.ok || data.ok === false) {
-        toast(data.message_en || data.summary_en || window.t("conn_error"), "err");
+        toast(serverMsg(data, "conn_error"), "err");
         return;
       }
 
@@ -390,7 +403,7 @@
 
       if (res.status === 429) { toast(window.t("rate_limited"), "err"); return; }
       if (!res.ok || data.ok === false) {
-        toast(data.message_en || window.t("mic_failed"), "err");
+        toast(serverMsg(data, "mic_failed"), "err");
         return;
       }
       const text = (data.text || "").trim();
@@ -474,4 +487,16 @@
 
   // Initial counter (after i18n applies on DOMContentLoaded).
   document.addEventListener("DOMContentLoaded", updateCounter);
+  document.addEventListener("langchange", updateCounter);
+
+  // Heartbeat: tells the admin panel this user has the page open ("Online now").
+  function ping() {
+    if (document.visibilityState !== "visible") return;
+    fetch("/api/ping", { method: "POST" }).then((r) => {
+      if (r.status === 401) window.location = "/login";
+    }).catch(() => {});
+  }
+  ping();
+  setInterval(ping, 60000);
+  document.addEventListener("visibilitychange", ping);
 })();
